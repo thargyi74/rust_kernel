@@ -1,6 +1,8 @@
-# Pinned to the exact stable release installed on 2026-11-25 (see README).
+# Uses the "stable" toolchain already on this Mac instead of a second, pinned
+# copy (saves ~0.7 GB; decided 2026-11-25). Tested with rustc 1.100.0; a newer
+# stable release could change warnings or behaviour.
 [toolchain]
-channel = "1.100.0"
+channel = "stable"
 components = ["clippy", "rustfmt", "llvm-tools"]
 targets = ["aarch64-unknown-none-softfloat"]
 profile = "minimal"

@@ -44,7 +44,7 @@
 
 ## Global Constraints
 
-- **Toolchain:** Rust stable, with the exact version that rustup installs in Task 2 written into `rust-toolchain.toml`. Edition `2024`, resolver `"3"`.
+- **Toolchain:** Rust `stable` in `rust-toolchain.toml`, tested with 1.100.0. It was first pinned to `1.100.0`, but on 2026-11-25 the user chose to reuse the Mac's existing `stable` and save 0.7 GB. Edition `2024`, resolver `"3"`.
 - **ARM64 target:** `aarch64-unknown-none-softfloat`. The kernel never uses FP/SIMD, the same as Linux (`reference/linux/arch/arm64/Makefile`, `KBUILD_RUSTFLAGS += --target=aarch64-unknown-none-softfloat`).
 - **Allowed dependencies:** `foundation`, `klib`, `kernel` and `vmlinux` may depend only on each other, through `path` dependencies. Only `xtask`, which runs on the Mac, may use std. It still uses no crates.io crates.
 - **`unsafe` policy:**

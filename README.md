@@ -14,7 +14,7 @@ source "$HOME/.cargo/env"
 brew install qemu
 ```
 
-The exact Rust version, its components and the bare-metal target are pinned in `rust-toolchain.toml`. rustup installs them the first time you run `cargo` here.
+`rust-toolchain.toml` selects Rust `stable` (tested with 1.100.0), plus the components and the bare-metal target the kernel needs. rustup installs them the first time you run `cargo` here.
 
 The Linux source we study goes in `reference/linux`. Git ignores that folder, and it's for reading only:
 
