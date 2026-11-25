@@ -1,0 +1,9 @@
+[package]
+name = "foundation"
+description = "The only crate allowed to use unsafe: CPU, boot, raw memory, devices"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]

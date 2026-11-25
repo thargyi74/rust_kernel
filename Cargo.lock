@@ -3,8 +3,27 @@
 version = 4
 
 [[package]]
+name = "foundation"
+version = "0.1.0"
+
+[[package]]
+name = "kernel"
+version = "0.1.0"
+dependencies = [
+ "foundation",
+]
+
+[[package]]
 name = "klib"
 version = "0.1.0"
+
+[[package]]
+name = "vmlinux"
+version = "0.1.0"
+dependencies = [
+ "foundation",
+ "kernel",
+]
 
 [[package]]
 name = "xtask"

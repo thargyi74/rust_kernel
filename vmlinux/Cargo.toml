@@ -1,0 +1,11 @@
+[package]
+name = "vmlinux"
+description = "The final kernel image: links foundation and kernel together"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+foundation = { path = "../foundation" }
+kernel = { path = "../kernel" }

@@ -1,0 +1,10 @@
+[package]
+name = "kernel"
+description = "The Linux-shaped kernel proper; compiled with forbid(unsafe_code)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+foundation = { path = "../foundation" }

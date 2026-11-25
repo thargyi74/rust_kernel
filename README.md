@@ -27,8 +27,18 @@ git -C reference/linux checkout v7.3
 
 | Command | What it does |
 |---|---|
-| `cargo xtask test` | Runs every check: host unit tests, and later the QEMU boot scenarios |
+| `cargo xtask test` | Runs every check: host unit tests, then each QEMU boot scenario (a hang counts as a failure) |
+| `cargo xtask run` | Builds the kernel and boots it in QEMU in your terminal (quit with Ctrl-A, then X) |
+| `cargo xtask build` | Builds `target/aarch64-unknown-none-softfloat/debug/Image` (the file QEMU boots) |
 | `cargo test` | Runs only the host unit tests (`xtask`, `klib`) |
+
+Expected `cargo xtask run` output:
+
+```
+rust_kernel: booting on aarch64
+rust_kernel: CurrentEL = EL1
+rust_kernel: boot OK, powering off
+```
 
 ## Crate map
 
