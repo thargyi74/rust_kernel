@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-only
-//! Flattened device tree (FDT) header check.
+//! Flattened device tree (FDT): the header check here, and the structure
+//! walker in `tree.rs`.
 //!
-//! Mirrors `fdt_check_header()` in Linux's `scripts/dtc/libfdt/fdt.c`, but
-//! for the version-17 header layout only. libfdt accepts `version >= 2` with
-//! `last_comp_version <= 17`; we require `version >= 17` (and the same
+//! The header check mirrors `fdt_check_header()` in Linux's
+//! `scripts/dtc/libfdt/fdt.c`, but for the version-17 header layout only.
+//! libfdt accepts `version >= 2` with `last_comp_version <= 17`; we require `version >= 17` (and the same
 //! `last_comp_version <= 17`), because QEMU and every modern `dtc` emit 17 and
 //! older header layouts are shorter.
 //!
 //! The header is untrusted input (it arrives in a register at boot), so every
 //! offset and size is bounds-checked with overflow-safe arithmetic: a hostile
 //! header must produce an error, never a panic.
+
+mod tree;
+#[cfg(test)]
+pub(crate) mod testing;
+
+pub use tree::{Fdt, Node};
 
 /// `FDT_MAGIC` in `scripts/dtc/libfdt/fdt.h`.
 pub const FDT_MAGIC: u32 = 0xd00d_feed;
@@ -40,7 +47,7 @@ pub struct FdtHeader {
     pub size_dt_struct: u32,
 }
 
-/// Why a header was rejected. Variants follow libfdt's `-FDT_ERR_*` codes.
+/// Why a device tree was rejected. Variants follow libfdt's `-FDT_ERR_*` codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FdtError {
     /// `FDT_ERR_TRUNCATED`: too short, or a block lies outside `totalsize`.
@@ -53,6 +60,15 @@ pub enum FdtError {
     TooLarge(u32),
     /// `FDT_ERR_ALIGNMENT`: a block offset is misaligned.
     Alignment,
+    /// `FDT_ERR_BADSTRUCTURE`: the structure block is malformed at `offset`,
+    /// counted from the start of the structure block.
+    BadStructure { offset: usize },
+    /// `FDT_ERR_BADNCELLS`: `#address-cells` or `#size-cells` is more than 2,
+    /// so an address or a size does not fit in a `u64`.
+    UnsupportedCells { address: u32, size: u32 },
+    /// `FDT_ERR_BADVALUE` for `reg`: its length is not a whole number of
+    /// (address, size) entries.
+    BadReg,
 }
 
 impl FdtHeader {
