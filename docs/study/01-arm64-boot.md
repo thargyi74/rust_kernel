@@ -7,10 +7,10 @@
 - `Documentation/arch/arm64/booting.rst:48-60`: rules for the device tree (8-byte aligned, at most 2 MB).
 - `Documentation/arch/arm64/booting.rst:73-160`: the 64-byte Image header and where the image must be placed.
 - `Documentation/arch/arm64/booting.rst:161-200`: CPU state at entry (`x0` = DTB, all interrupts masked, MMU off, EL2 or EL1).
-- `arch/arm64/kernel/head.S:42-70`: the real Image header.
+- `arch/arm64/kernel/head.S:57-72`: the real Image header.
 - `arch/arm64/kernel/head.S:85-131` (`primary_entry`), `:220-247` (`__primary_switched`) and `:270` (`init_kernel_el`).
 - `arch/arm64/kernel/image.h:54-65`: how `image_size` and `flags` are computed at link time.
-- `arch/arm64/kernel/vmlinux.lds.S:174-373`: section layout from `_text` to `_end`.
+- `arch/arm64/kernel/vmlinux.lds.S:174-372`: section layout from `_text` to `_end`.
 - `arch/arm64/kernel/pi/map_kernel.c:251-252`: where BSS is cleared.
 - `init/main.c:987-1020`: the first calls in `start_kernel()`.
 - `drivers/tty/serial/amba-pl011.c:2473-2481` (`pl011_console_putchar`) and `include/linux/amba/serial.h:25,34,91`.
@@ -22,13 +22,13 @@
 ## How Linux does it
 
 1. **The bootloader** loads `Image` at a 2 MB-aligned base plus `text_offset`, puts the device tree somewhere in RAM, sets `x0 = DTB address`, and jumps to the first byte of the image (`booting.rst:136-170`). In QEMU, `-kernel Image` plays the bootloader.
-2. **Header word 0** (`head.S:58`) is `efi_signature_nop`. It does nothing when booted normally, but it also reads as "MZ", which lets UEFI firmware treat the same file as a PE/COFF program. **Header word 1** is `b primary_entry`.
+2. **Header word 0** (`head.S:61`) is `efi_signature_nop`. It does nothing when booted normally, but it also reads as "MZ", which lets UEFI firmware treat the same file as a PE/COFF program. **Header word 1** (`head.S:62`) is `b primary_entry`.
 3. **`primary_entry`** (`head.S:85`):
-   1. `record_mmu_state`: was the MMU on? The result goes in `x19`.
-   2. `preserve_boot_args`: save `x0..x3`. The FDT pointer goes in `x21` (`head.S:78-83`), the first thing done, before anything can clobber `x0`.
+   1. `record_mmu_state` (`head.S:86`): was the MMU on? The result goes in `x19`. It touches only `x19`, so `x0` survives.
+   2. `preserve_boot_args` (`head.S:87`): save `x0..x3`. The FDT pointer goes in `x21` (`head.S:80-83`), before anything can clobber `x0`.
    3. Set up an early stack, then build an identity map (`__pi_create_init_idmap`).
    4. `init_kernel_el` (`head.S:270`): if the CPU entered at EL2, configure EL2 and drop to EL1 (or stay in EL2 with VHE).
-   5. `__cpu_setup`, then `__primary_switch`, which turns on the MMU (`__enable_mmu`, `head.S:511`).
+   5. `__cpu_setup`, then `__primary_switch`, which turns on the MMU by calling `__enable_mmu` (call at `head.S:511`, definition at `head.S:459`).
 4. **The early C code** in `pi/map_kernel.c` maps the kernel and clears BSS with `memset(__bss_start, 0, init_pg_end - __bss_start)` (`map_kernel.c:252`).
 5. **`__primary_switched`** (`head.S:220`):
    1. Set `current` = `init_task`.
@@ -51,6 +51,8 @@
 | `setup_arch(&command_line)` (1009) | arch setup: parses the DTB, memblock, paging | M2 |
 | `mm_core_init_early()` (1010) | early memory core | M2 |
 | `jump_label_init()` / `static_call_init()` (1012-13) | self-patching code | not planned |
+| `early_security_init()` (1014) | early setup of security modules (LSMs) | not planned |
+| `setup_boot_config()` (1015) | bootconfig: extra boot parameters | not planned |
 | `setup_command_line()` (1016) | kernel command line | M2 |
 | `setup_nr_cpu_ids()` / `setup_per_cpu_areas()` (1017-18) | per-CPU data | M7 |
 | `smp_prepare_boot_cpu()` (1019) | arch-specific boot-CPU hooks | M7 |
@@ -62,9 +64,12 @@
 ## Key data structures
 
 - **The Image header** (`booting.rst:79-90`): 64 bytes. `code0`, `code1`, `text_offset`, `image_size`, `flags`, three reserved words, `magic` = `"ARM\x64"`, and `res5` = the offset of the PE header.
-  - Linux sets **`text_offset = 0`** (`head.S:60`).
+  - Linux sets **`text_offset = 0`** (`head.S:63`).
   - `image_size` = `_end - _text`, computed in the linker script through `DEFINE_IMAGE_LE64` (`image.h:64`), so the size always includes BSS.
 - **`struct fdt_header`** (`scripts/dtc/libfdt/fdt.h:12-29`): ten big-endian `u32` fields. Our `klib::fdt::FdtHeader` is the same.
+- **Which header versions are accepted.** libfdt's `fdt_check_header` (`fdt.c:89`) accepts any `version >= 2` (`FDT_FIRST_SUPPORTED_VERSION`, `libfdt.h:16`) whose `last_comp_version <= 17` (`FDT_LAST_SUPPORTED_VERSION` = 0x11, `libfdt.h:18`). It supports several older header layouts.
+  - **Our call:** `klib` requires `version >= 17` and `last_comp_version <= 17`, so only the version-17 layout (40 bytes) is ever parsed. A future version-18 blob that is still compatible with 17 is accepted, while version 16 and older are rejected. QEMU and every modern `dtc` produce version 17, so we skip the old layouts.
+  - Tests: `rejects_old_version`, `rejects_last_comp_version_newer_than_17`, `accepts_newer_version_that_stays_compatible_with_16`.
 
 ## Engineering techniques worth stealing
 
@@ -88,7 +93,7 @@
 | UART base from the DT / earlycon | hard-coded `0x0900_0000` (QEMU `virt`) | Temporary until M2. |
 | `vpanic` prints the banner, stops CPUs, spins | prints the same two banner lines plus the location, then powers off | In QEMU, powering off ends the test run immediately instead of hanging. |
 | C everywhere | All `unsafe` code is in `foundation`. `start_kernel` and `panic` are in `kernel`, which is `#![forbid(unsafe_code)]` | The compiler guarantees that `kernel` contains no `unsafe` code. |
-| `-mgeneral-regs-only` for C | target `aarch64-unknown-none-softfloat` | Same reason: the kernel never touches FP/SIMD registers, so the user's FP state never needs saving on kernel entry. Linux's own Rust build uses this exact target (`arch/arm64/Makefile:52`). |
+| `-mgeneral-regs-only` for C | target `aarch64-unknown-none-softfloat` | Same reason: the kernel never touches FP/SIMD registers, so the user's FP state never needs saving on kernel entry. Linux's own Rust build uses this exact target (`arch/arm64/Makefile:49`). |
 
 **The safety wall works.** We added `fn _probe() { unsafe {} }` to `kernel/src/lib.rs` on purpose, and `cargo xtask build` refused it:
 

@@ -17,7 +17,7 @@
 - Never edit or commit anything under `reference/`.
 - Commit straight to `main`.
 - Push to `origin main` only when the user asks. Never force-push.
-- `/docs/` is in `.gitignore`. This is the user's uncommitted change, and they haven't decided about it yet. So new files under `docs/` stay untracked, while already-tracked files commit normally. Never `git add -f`.
+- `docs/` (study notes and plans) is tracked. Commit it along with the work it describes.
 
 **Working with the user**
 - The user is on the Pro plan. Do **one step per fresh session** (see below), and never chain steps in one session.
