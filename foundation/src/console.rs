@@ -7,10 +7,10 @@
 //! Linux's `of_console_check` / earlycon `stdout-path` handling. Until
 //! [`init`] finds it, output is dropped.
 
+use crate::boot::BootFdt;
 use crate::drivers::pl011;
 use core::fmt;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-use klib::fdt::Fdt;
 
 /// UART base address; 0 means no console yet. Only plain loads and stores:
 /// this runs with the MMU off, where read-modify-write atomics fault.
@@ -29,8 +29,10 @@ pub enum ConsoleError {
     NoReg,
 }
 
-/// Finds the console UART in the device tree and starts using it.
-pub fn init(fdt: &Fdt<'_>) -> Result<(), ConsoleError> {
+/// Finds the console UART in the boot device tree and starts using it. It
+/// takes a [`BootFdt`] because the UART base becomes raw MMIO writes: a
+/// made-up device tree could aim them at any memory.
+pub fn init(fdt: &BootFdt) -> Result<(), ConsoleError> {
     let node = fdt.chosen_stdout().ok_or(ConsoleError::NoStdoutPath)?;
     if !node.is_compatible("arm,pl011") {
         return Err(ConsoleError::NotPl011);
@@ -44,6 +46,13 @@ pub fn init(fdt: &Fdt<'_>) -> Result<(), ConsoleError> {
     UART_SIZE.store(size, Relaxed);
     UART_BASE.store(base, Relaxed);
     Ok(())
+}
+
+/// Aims the console at `base` without any check, so a test can make the
+/// next console write fault.
+#[cfg(feature = "test-hooks")]
+pub(crate) fn set_base_unchecked(base: usize) {
+    UART_BASE.store(base, Relaxed);
 }
 
 /// The console UART's MMIO window as `(base, size)`, once [`init`] succeeded.

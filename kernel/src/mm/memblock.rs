@@ -16,7 +16,7 @@ pub fn memblock_init(fdt: &Fdt<'_>, info: &BootInfo) -> Memblock {
             .unwrap_or_else(|| panic!("memblock: bad range {:#x}..{:#x}", start, end))
     };
     let image = range(info.image.start, info.image.end);
-    let dtb = range(info.dtb_addr, info.dtb_addr.saturating_add(info.dtb.len()));
+    let dtb = range(info.dtb_addr, info.dtb_addr.saturating_add(info.dtb().len()));
     Memblock::from_device_tree(fdt, &[image, dtb])
         .unwrap_or_else(|e| panic!("memblock: {:?} (no usable memory in the device tree?)", e))
 }

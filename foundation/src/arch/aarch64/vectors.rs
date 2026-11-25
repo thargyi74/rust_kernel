@@ -10,6 +10,7 @@
 use crate::console::Console;
 use core::arch::{asm, global_asm};
 use core::fmt::Write;
+use core::sync::atomic::{AtomicU8, Ordering::Relaxed};
 
 // 16 entries of 128 bytes in a 2 KiB-aligned table, as VBAR_EL1 requires.
 global_asm!(
@@ -52,6 +53,12 @@ const NAMES: [&str; 16] = [
     "el0t_32_error",
 ];
 
+/// How many times `early_exception` has been entered. A fault while
+/// reporting (an unmapped console, say) enters it again; without this, it
+/// would recurse until the stack ran into `.bss`. Plain load and store only:
+/// this runs with the MMU off.
+static ENTRIES: AtomicU8 = AtomicU8::new(0);
+
 /// Points `VBAR_EL1` at the table (Linux: `msr vbar_el1` in `head.S:225`).
 pub(crate) fn install() {
     // Taking the address of an extern static is safe; we never read through it.
@@ -64,9 +71,18 @@ pub(crate) fn install() {
 }
 
 /// Called by every vector entry. Prints the report through the lock-free
-/// console, then powers off.
+/// console, then powers off. If the report itself faults, the second entry
+/// powers off at once; if powering off faults too, the third one halts.
 #[unsafe(no_mangle)]
 extern "C" fn early_exception(index: u64, esr: u64, far: u64, elr: u64) -> ! {
+    match ENTRIES.load(Relaxed) {
+        0 => ENTRIES.store(1, Relaxed),
+        1 => {
+            ENTRIES.store(2, Relaxed);
+            crate::power::power_off()
+        }
+        _ => super::halt(),
+    }
     let name = NAMES.get(index as usize).copied().unwrap_or("unknown");
     // The console cannot fail, so the fmt::Result carries no information.
     let _ = writeln!(Console, "rust_kernel: early exception: {name}");

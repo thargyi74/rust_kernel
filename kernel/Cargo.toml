@@ -15,3 +15,5 @@ klib = { path = "../klib" }
 test-panic = []
 # Hit a breakpoint after PSCI setup, to test the early exception report.
 test-fault = ["foundation/test-hooks"]
+# Break the console, then hit a breakpoint: the fault report itself faults.
+test-nested-fault = ["foundation/test-hooks"]

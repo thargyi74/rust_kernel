@@ -78,4 +78,16 @@ pub const SCENARIOS: &[Scenario] = &[
         },
         timeout: Duration::from_secs(10),
     },
+    Scenario {
+        // The fault report itself faults (the console points at nothing).
+        // A clean power-off, not a timeout, shows the re-entry is bounded.
+        name: "nested-fault",
+        features: &["test-nested-fault"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &["psci: probing for conduit method from DT."],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },
 ];
