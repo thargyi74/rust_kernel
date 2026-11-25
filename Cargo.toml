@@ -1,0 +1,12 @@
+[workspace]
+resolver = "3"
+members = ["xtask"]
+# Only crates that build for the host (macOS) belong here, so that a plain
+# `cargo test` at the repo root never tries to build bare-metal crates.
+default-members = ["xtask"]
+exclude = ["reference"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-2.0-only"

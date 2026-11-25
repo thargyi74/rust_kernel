@@ -3,3 +3,6 @@
 
 # Plan-execution scratch (ledger, briefs)
 /.superpowers/
+
+# Cargo build output
+/target/

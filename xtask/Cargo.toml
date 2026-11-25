@@ -1,0 +1,9 @@
+[package]
+name = "xtask"
+description = "Host-side build, run and test driver for rust_kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]

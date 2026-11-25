@@ -1,0 +1,4 @@
+# No global build.target here: xtask passes --target for kernel builds, and
+# host crates (klib, xtask) must keep building for macOS.
+[alias]
+xtask = "run --package xtask --"

@@ -1,0 +1,6 @@
+# Pinned to the exact stable release installed on 2026-11-25 (see README).
+[toolchain]
+channel = "1.100.0"
+components = ["clippy", "rustfmt", "llvm-tools"]
+targets = ["aarch64-unknown-none-softfloat"]
+profile = "minimal"
