@@ -7,5 +7,6 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+pub mod drivers;
 pub mod init;
 pub mod kernel;

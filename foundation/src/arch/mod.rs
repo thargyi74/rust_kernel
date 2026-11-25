@@ -14,4 +14,4 @@ compile_error!("foundation supports only bare-metal aarch64 so far (build it thr
 /// Name of the CPU architecture this kernel was built for.
 pub const NAME: &str = imp::NAME;
 
-pub(crate) use imp::{console_putc, system_off};
+pub(crate) use imp::{halt, system_off};

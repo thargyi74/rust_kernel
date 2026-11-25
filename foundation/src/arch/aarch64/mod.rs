@@ -3,12 +3,10 @@
 
 mod boot;
 mod head;
-mod pl011;
 mod psci;
 
 use core::arch::asm;
 
-pub(crate) use pl011::putc as console_putc;
 pub(crate) use psci::system_off;
 
 pub const NAME: &str = "aarch64";
@@ -19,4 +17,12 @@ pub(crate) fn current_el() -> u8 {
     // SAFETY: reading CurrentEL has no side effects and touches no memory.
     unsafe { asm!("mrs {}, CurrentEL", out(reg) el, options(nomem, nostack, preserves_flags)) };
     ((el >> 2) & 3) as u8
+}
+
+/// Stops this CPU for good: waits for events forever (Linux: `cpu_park_loop`).
+pub(crate) fn halt() -> ! {
+    loop {
+        // SAFETY: `wfe` only waits for an event; it touches no memory.
+        unsafe { asm!("wfe", options(nomem, nostack, preserves_flags)) };
+    }
 }

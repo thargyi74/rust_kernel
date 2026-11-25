@@ -27,6 +27,7 @@ pub const SCENARIOS: &[Scenario] = &[
                 "rust_kernel: CurrentEL = EL1",
                 "rust_kernel: dtb at 0x",
                 "version 17",
+                "psci: probing for conduit method from DT.",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address"],
@@ -54,6 +55,7 @@ pub const SCENARIOS: &[Scenario] = &[
         expect: Expect {
             must_contain: &[
                 "rust_kernel: CurrentEL = EL2",
+                "psci: probing for conduit method from DT.",
                 "Kernel panic - not syncing: rust_kernel requires EL1, booted at EL2",
             ],
             must_not_contain: &["boot OK"],

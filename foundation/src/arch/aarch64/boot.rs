@@ -24,6 +24,8 @@ unsafe extern "Rust" {
 extern "C" fn __rust_boot(dtb_addr: usize, runtime_start: usize, linked_start: usize) -> ! {
     // Formatting uses tables of absolute addresses, which are only right if we
     // run where we were linked. Check that first, using plain writes only.
+    // Since M2 the console comes from the device tree, so this message is
+    // dropped and power_off halts: a silent stop, like a bad device tree.
     if runtime_start != linked_start {
         console::write_str("rust_kernel: loaded at wrong address (check text_offset)\n");
         power::power_off();
