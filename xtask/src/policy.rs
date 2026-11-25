@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! Project rules that the compiler cannot check by itself.
+//!
+//! "No crates": every package in the workspace's `Cargo.lock` must be one of
+//! our own path crates. Cargo writes a `source = ...` line only for packages
+//! that come from a registry (crates.io) or git, so any such line breaks the
+//! rule. This covers normal, build and dev dependencies of every crate,
+//! including xtask, and cannot be fooled by a registry crate that happens to
+//! share a name with one of ours.
 
-/// Crates that may appear in the kernel's dependency tree: our own, and
-/// nothing from crates.io (Global Constraint: "no crates").
-pub const KERNEL_CRATES: &[&str] = &["vmlinux", "foundation", "kernel", "klib"];
-
-/// Names of crates in `cargo tree --prefix none` output that are not in
-/// `allowed`. Each line starts with the crate name ("spin v0.9.8 ...").
-pub fn external_crates(cargo_tree_output: &str, allowed: &[&str]) -> Vec<String> {
-    let mut found: Vec<String> = cargo_tree_output
-        .lines()
-        .filter_map(|line| line.split_whitespace().next())
-        .filter(|name| !allowed.contains(name))
-        .map(str::to_string)
-        .collect();
-    found.dedup();
-    found
+/// Names of the `[[package]]` entries in `cargo_lock` that have a `source`.
+pub fn outside_packages(cargo_lock: &str) -> Vec<String> {
+    let mut outside = Vec::new();
+    let mut name: Option<&str> = None;
+    for line in cargo_lock.lines().map(str::trim) {
+        if line == "[[package]]" {
+            name = None;
+        } else if let Some(n) = line.strip_prefix("name = ") {
+            name = Some(n.trim_matches('"'));
+        } else if line.starts_with("source = ") {
+            outside.push(name.unwrap_or("<unnamed package>").to_string());
+        }
+    }
+    outside
 }
 
 #[cfg(test)]
@@ -23,17 +29,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_workspace_crates_is_clean() {
-        let tree = "vmlinux v0.1.0 (/r/vmlinux)\nfoundation v0.1.0 (/r/foundation)\nkernel v0.1.0 (/r/kernel)\nklib v0.1.0 (/r/klib)\n";
-        assert!(external_crates(tree, &["vmlinux", "foundation", "kernel", "klib"]).is_empty());
+    fn workspace_only_lock_is_clean() {
+        let lock = "version = 4\n\n[[package]]\nname = \"foundation\"\nversion = \"0.1.0\"\ndependencies = [\n \"klib\",\n]\n\n[[package]]\nname = \"klib\"\nversion = \"0.1.0\"\n";
+        assert!(outside_packages(lock).is_empty());
     }
 
     #[test]
-    fn flags_crates_io_dependency() {
-        let tree = "vmlinux v0.1.0 (/r/vmlinux)\nspin v0.9.8\n";
-        assert_eq!(
-            external_crates(tree, &["vmlinux"]),
-            vec!["spin".to_string()]
-        );
+    fn flags_registry_package() {
+        let lock = "[[package]]\nname = \"kernel\"\nversion = \"0.1.0\"\n\n[[package]]\nname = \"spin\"\nversion = \"0.9.8\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67\"\n";
+        assert_eq!(outside_packages(lock), vec!["spin".to_string()]);
+    }
+
+    #[test]
+    fn flags_git_package_even_if_named_like_ours() {
+        let lock = "[[package]]\nname = \"klib\"\nversion = \"0.1.0\"\nsource = \"git+https://example.com/klib#abc\"\n";
+        assert_eq!(outside_packages(lock), vec!["klib".to_string()]);
     }
 }

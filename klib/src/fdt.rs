@@ -2,8 +2,10 @@
 //! Flattened device tree (FDT) header check.
 //!
 //! Mirrors `fdt_check_header()` in Linux's `scripts/dtc/libfdt/fdt.c`, but
-//! for the version-17 header layout only. Linux accepts versions 2..=17;
-//! QEMU and every modern `dtc` emit 17, so older layouts are rejected here.
+//! for the version-17 header layout only. libfdt accepts `version >= 2` with
+//! `last_comp_version <= 17`; we require `version >= 17` (and the same
+//! `last_comp_version <= 17`), because QEMU and every modern `dtc` emit 17 and
+//! older header layouts are shorter.
 //!
 //! The header is untrusted input (it arrives in a register at boot), so every
 //! offset and size is bounds-checked with overflow-safe arithmetic: a hostile
@@ -20,7 +22,8 @@ pub const FDT_V17_HEADER_SIZE: usize = 40;
 /// `arch/arm64/include/asm/boot.h`).
 pub const MAX_FDT_SIZE: usize = 2 * 1024 * 1024;
 
-/// The only header version we accept (`FDT_LAST_SUPPORTED_VERSION` = 0x11).
+/// Oldest `version` we parse, and newest `last_comp_version` we understand
+/// (`FDT_LAST_SUPPORTED_VERSION` = 0x11 in libfdt).
 const SUPPORTED_VERSION: u32 = 17;
 
 /// `struct fdt_header` from `fdt.h`, minus `magic` (always `FDT_MAGIC` once parsed).
@@ -200,6 +203,46 @@ mod tests {
     fn rejects_struct_block_past_end() {
         let mut f = OK;
         f[9] = 1000;
+        assert_eq!(FdtHeader::parse(&blob(f, 256)), Err(FdtError::Truncated));
+    }
+
+    #[test]
+    fn rejects_last_comp_version_newer_than_17() {
+        let mut f = OK;
+        f[5] = 18;
+        f[6] = 18;
+        assert_eq!(
+            FdtHeader::parse(&blob(f, 256)),
+            Err(FdtError::BadVersion { version: 18, last_comp_version: 18 })
+        );
+    }
+
+    #[test]
+    fn accepts_newer_version_that_stays_compatible_with_16() {
+        let mut f = OK;
+        f[5] = 18;
+        f[6] = 16;
+        assert_eq!(FdtHeader::parse(&blob(f, 256)).map(|h| h.version), Ok(18));
+    }
+
+    #[test]
+    fn rejects_misaligned_struct_block() {
+        let mut f = OK;
+        f[2] = 58;
+        assert_eq!(FdtHeader::parse(&blob(f, 256)), Err(FdtError::Alignment));
+    }
+
+    #[test]
+    fn rejects_rsvmap_past_end() {
+        let mut f = OK;
+        f[4] = 264;
+        assert_eq!(FdtHeader::parse(&blob(f, 256)), Err(FdtError::Truncated));
+    }
+
+    #[test]
+    fn rejects_struct_block_overlapping_header() {
+        let mut f = OK;
+        f[2] = 0;
         assert_eq!(FdtHeader::parse(&blob(f, 256)), Err(FdtError::Truncated));
     }
 

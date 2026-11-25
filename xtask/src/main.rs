@@ -124,7 +124,7 @@ fn build_image(features: &[String]) -> Result<PathBuf, String> {
     }
     run(build, "cargo build -p vmlinux")?;
 
-    let out_dir = root().join("target").join(KERNEL_TARGET).join("debug");
+    let out_dir = target_dir()?.join(KERNEL_TARGET).join("debug");
     let image = out_dir.join("Image");
     let mut objcopy = Command::new(llvm_objcopy()?);
     objcopy
@@ -134,6 +134,34 @@ fn build_image(features: &[String]) -> Result<PathBuf, String> {
         .arg(&image);
     run(objcopy, "llvm-objcopy")?;
     Ok(image)
+}
+
+/// Cargo's build directory. It honours `CARGO_TARGET_DIR` and
+/// `build.target-dir`, so it is asked from `cargo metadata` instead of assumed
+/// to be `./target` (otherwise a stale kernel could be booted).
+fn target_dir() -> Result<PathBuf, String> {
+    let mut meta = cargo();
+    meta.args(["metadata", "--no-deps", "--format-version", "1"]);
+    let json = capture(meta, "cargo metadata")?;
+    json_string_field(&json, "target_directory")
+        .map(PathBuf::from)
+        .ok_or_else(|| "cargo metadata printed no target_directory".to_string())
+}
+
+/// The value of the first `"key":"value"` string field in `json`, with `\"`
+/// and `\\` escapes undone. Enough for `cargo metadata` without a JSON crate.
+fn json_string_field(json: &str, key: &str) -> Option<String> {
+    let start = json.find(&format!("\"{key}\":\""))? + key.len() + 4;
+    let mut value = String::new();
+    let mut chars = json[start..].chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => return Some(value),
+            '\\' => value.push(chars.next()?),
+            c => value.push(c),
+        }
+    }
+    None
 }
 
 /// The QEMU command line from the plan's Global Constraints.
@@ -166,12 +194,14 @@ fn test() -> Result<(), String> {
     host.arg("test");
     run(host, "host tests (cargo test)")?;
 
-    // No crates.io dependencies anywhere in the kernel's tree.
-    let mut tree = cargo();
-    tree.args(["tree", "-p", "vmlinux", "--target", KERNEL_TARGET, "-e", "normal", "--prefix", "none"]);
-    let external = policy::external_crates(&capture(tree, "cargo tree")?, policy::KERNEL_CRATES);
-    if !external.is_empty() {
-        return Err(format!("kernel depends on outside crates (not allowed): {external:?}"));
+    // No crates.io or git packages anywhere in the workspace. `cargo test`
+    // above has just brought Cargo.lock up to date.
+    let lock_path = root().join("Cargo.lock");
+    let lock = std::fs::read_to_string(&lock_path)
+        .map_err(|e| format!("cannot read {}: {e}", lock_path.display()))?;
+    let outside = policy::outside_packages(&lock);
+    if !outside.is_empty() {
+        return Err(format!("Cargo.lock has outside packages (not allowed): {outside:?}"));
     }
     println!("xtask: policy: no outside crates");
 
@@ -197,4 +227,26 @@ fn test() -> Result<(), String> {
     }
     println!("xtask: all checks passed");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_target_directory_from_cargo_metadata() {
+        let json = r#"{"packages":[],"target_directory":"/tmp/my target","version":1,"workspace_root":"/r"}"#;
+        assert_eq!(json_string_field(json, "target_directory").as_deref(), Some("/tmp/my target"));
+    }
+
+    #[test]
+    fn unescapes_quotes_and_backslashes() {
+        let json = r#"{"target_directory":"/a\\b\"c"}"#;
+        assert_eq!(json_string_field(json, "target_directory").as_deref(), Some("/a\\b\"c"));
+    }
+
+    #[test]
+    fn missing_field_is_none() {
+        assert_eq!(json_string_field(r#"{"version":1}"#, "target_directory"), None);
+    }
 }
