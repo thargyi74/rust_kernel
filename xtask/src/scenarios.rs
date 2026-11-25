@@ -28,6 +28,8 @@ pub const SCENARIOS: &[Scenario] = &[
                 "rust_kernel: dtb at 0x",
                 "version 17",
                 "psci: probing for conduit method from DT.",
+                "Early memory node ranges",
+                "  node   0: [mem 0x0000000040000000-0x000000005fffffff]",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address", "early exception"],

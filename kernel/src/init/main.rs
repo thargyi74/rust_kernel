@@ -2,6 +2,8 @@
 //! Linux counterpart: `init/main.c`.
 
 use crate::drivers::firmware::psci::psci_dt_init;
+use crate::mm::memblock::memblock_init;
+use crate::mm::mm_init::print_memory_node_ranges;
 use crate::pr_info;
 use core::ops::Range;
 use foundation::boot::BootInfo;
@@ -40,6 +42,9 @@ pub fn start_kernel(info: BootInfo) -> ! {
     if cfg!(feature = "test-panic") {
         panic!("test-panic feature enabled");
     }
+
+    let memblock = memblock_init(&fdt, &info);
+    print_memory_node_ranges(&memblock);
 
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()

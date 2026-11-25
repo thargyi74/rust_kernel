@@ -10,3 +10,4 @@
 pub mod drivers;
 pub mod init;
 pub mod kernel;
+pub mod mm;

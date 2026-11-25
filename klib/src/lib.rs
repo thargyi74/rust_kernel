@@ -5,3 +5,5 @@
 #![forbid(unsafe_code)]
 
 pub mod fdt;
+pub mod mm;
+pub mod prandom;
