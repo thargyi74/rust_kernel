@@ -8,7 +8,8 @@
 //! no NUMA node ids and no region flags.
 
 use crate::fdt::{Fdt, FdtError};
-use crate::mm::addr::{MAX_PHYS, PAGE_SIZE, PhysAddr, PhysRange};
+use crate::mm::addr::{MAX_PHYS, PAGE_SIZE, Pfn, PhysAddr, PhysRange};
+use crate::mm::buddy::{BuddyAllocator, Frame};
 
 /// Ranges per array (Linux starts with `INIT_MEMBLOCK_REGIONS` = 128).
 pub const MAX_REGIONS: usize = 128;
@@ -203,6 +204,22 @@ impl Memblock {
         }
         Ok(mb)
     }
+
+    /// Hands every free range, rounded inward to whole pages, to a new
+    /// buddy allocator over `frames`, where `frames[i]` describes
+    /// `base + i`. The memblock is gone afterwards, as in Linux's
+    /// `memblock_free_all`.
+    pub fn into_page_allocator<'a>(self, frames: &'a mut [Frame], base: Pfn) -> BuddyAllocator<'a> {
+        let mut buddy = BuddyAllocator::new(frames, base);
+        for r in self.free_ranges() {
+            let Some(start) = r.start().align_up(PAGE_SIZE) else { continue };
+            let end = r.end().align_down(PAGE_SIZE);
+            if start < end {
+                buddy.add_free_range(start.pfn(), end.pfn());
+            }
+        }
+        buddy
+    }
 }
 
 #[cfg(test)]
@@ -210,7 +227,8 @@ mod tests {
     use super::*;
     use crate::fdt::testing::Builder;
     use crate::fdt::Fdt;
-    use crate::mm::addr::{PhysAddr, PhysRange};
+    use crate::mm::addr::{Pfn, PhysAddr, PhysRange};
+    use crate::mm::buddy::Frame;
     use crate::prandom::XorShift64;
 
     const QEMU: &[u8] = include_bytes!("../../testdata/qemu-virt-512m.dtb");
@@ -366,6 +384,27 @@ mod tests {
         let blob = b.finish();
         let m = Memblock::from_device_tree(&Fdt::new(&blob).unwrap(), &[]).unwrap();
         assert_eq!(m.reserved(), &[r(0x4800_0000, 0x4800_1000)]);
+    }
+
+    #[test]
+    fn into_page_allocator_frees_only_unreserved_memory() {
+        let mut m = Memblock::new();
+        m.add(r(0x4000_0000, 0x4040_0000)).unwrap();
+        m.reserve(r(0x4008_0000, 0x4010_0000)).unwrap();
+        let mut frames = vec![Frame::RESERVED; 1024];
+        let b = m.into_page_allocator(&mut frames, Pfn::new(0x40000));
+        assert_eq!(b.free_pages(), 896);
+    }
+
+    #[test]
+    fn into_page_allocator_rounds_free_ranges_inward() {
+        let mut m = Memblock::new();
+        m.add(r(0x4000_0000, 0x4000_4000)).unwrap();
+        m.reserve(r(0x4000_0000, 0x4000_0800)).unwrap();
+        m.reserve(r(0x4000_3800, 0x4000_4000)).unwrap();
+        let mut frames = vec![Frame::RESERVED; 4];
+        let b = m.into_page_allocator(&mut frames, Pfn::new(0x40000));
+        assert_eq!(b.free_pages(), 2);
     }
 
     #[test]
