@@ -5,12 +5,16 @@ version = 4
 [[package]]
 name = "foundation"
 version = "0.1.0"
+dependencies = [
+ "klib",
+]
 
 [[package]]
 name = "kernel"
 version = "0.1.0"
 dependencies = [
  "foundation",
+ "klib",
 ]
 
 [[package]]

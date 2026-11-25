@@ -8,3 +8,4 @@ publish = false
 
 [dependencies]
 foundation = { path = "../foundation" }
+klib = { path = "../klib" }

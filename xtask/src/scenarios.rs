@@ -24,6 +24,8 @@ pub const SCENARIOS: &[Scenario] = &[Scenario {
         must_contain: &[
             "rust_kernel: booting on aarch64",
             "rust_kernel: CurrentEL = EL1",
+            "rust_kernel: dtb at 0x",
+            "version 17",
             "rust_kernel: boot OK, powering off",
         ],
         must_not_contain: &["Kernel panic", "wrong address"],

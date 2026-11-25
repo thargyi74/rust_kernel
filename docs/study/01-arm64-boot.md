@@ -90,6 +90,11 @@
 | C everywhere | All `unsafe` code is in `foundation`. `start_kernel` and `panic` are in `kernel`, which is `#![forbid(unsafe_code)]` | The compiler guarantees that `kernel` contains no `unsafe` code. |
 | `-mgeneral-regs-only` for C | target `aarch64-unknown-none-softfloat` | Same reason: the kernel never touches FP/SIMD registers, so the user's FP state never needs saving on kernel entry. Linux's own Rust build uses this exact target (`arch/arm64/Makefile:52`). |
 
+**What QEMU actually passes** (from our boot log, `-m 512M`): `dtb at 0x48000000, totalsize 1048576 bytes, version 17`.
+- QEMU puts the DTB 128 MiB into RAM (RAM starts at `0x4000_0000`), far from our image at `0x4008_0000`.
+- QEMU pads the DTB to exactly 1 MiB, inside Linux's 2 MiB limit (`MAX_FDT_SIZE`).
+- `foundation` reads only the magic and `totalsize` (raw memory, so `unsafe`). `klib::fdt::FdtHeader::parse` checks everything else in safe code that is unit-tested on the Mac.
+
 **How the crates connect at boot:**
 
 ```
