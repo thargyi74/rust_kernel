@@ -1,9 +1,9 @@
 [workspace]
 resolver = "3"
-members = ["xtask"]
+members = ["klib", "xtask"]
 # Only crates that build for the host (macOS) belong here, so that a plain
 # `cargo test` at the repo root never tries to build bare-metal crates.
-default-members = ["xtask"]
+default-members = ["klib", "xtask"]
 exclude = ["reference"]
 
 [workspace.package]
