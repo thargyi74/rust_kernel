@@ -1,0 +1,5 @@
+# Upstream source trees cloned for study (large; never commit or push)
+/reference/
+
+# Plan-execution scratch (ledger, briefs)
+/.superpowers/
