@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! What the kernel learns at boot, and how `vmlinux` names its entry point.
+//! Linux counterpart: the boot arguments saved by `preserve_boot_args`
+//! (`arch/arm64/kernel/head.S:170`) and `__fdt_pointer` (`arch/arm64/kernel/setup.c:61`).
 
 use core::ops::Range;
 

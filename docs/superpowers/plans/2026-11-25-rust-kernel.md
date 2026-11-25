@@ -1,6 +1,6 @@
 # Linux-like Kernel in Pure Rust — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Learn how Linux works by studying its code line by line and its architecture and engineering techniques, then rebuild each part as a Linux-like kernel in Rust. ARM64 comes first, then x86-64 and RISC-V.
 
@@ -79,8 +79,8 @@ Every milestone follows the same loop:
 
 | # | Milestone | Linux to study (in `reference/linux`) | We build | Exit test |
 |---|---|---|---|---|
-| M0 | Toolchain, workspace, harness | Top-level tree, `MAINTAINERS`, `Documentation/process/2.Process.rst`, git history | Workspace, `xtask` with a QEMU runner that times out, tree-tour note | `cargo test` and `cargo xtask test` pass on the host |
-| M1 | ARM64 boot + console | `Documentation/arch/arm64/booting.rst`, `arch/arm64/kernel/head.S`, `arch/arm64/kernel/vmlinux.lds.S`, `init/main.c` (`start_kernel`), `include/linux/amba/serial.h`, `drivers/tty/serial/serial_core.c` (`uart_console_write`), `kernel/panic.c`, `drivers/firmware/psci/psci.c`, `scripts/dtc/libfdt/fdt.c` | Image header, entry assembly, PL011 console, `pr_info!`, Linux-style panic, PSCI power-off, DTB header check | Boot, panic and EL2 scenarios all pass |
+| M0 | Toolchain, workspace, harness (**done**) | Top-level tree, `MAINTAINERS`, `Documentation/process/2.Process.rst`, git history | Workspace, `xtask` with a QEMU runner that times out, tree-tour note | `cargo test` and `cargo xtask test` pass on the host |
+| M1 | ARM64 boot + console (**done**) | `Documentation/arch/arm64/booting.rst`, `arch/arm64/kernel/head.S`, `arch/arm64/kernel/vmlinux.lds.S`, `init/main.c` (`start_kernel`), `include/linux/amba/serial.h`, `drivers/tty/serial/serial_core.c` (`uart_console_write`), `kernel/panic.c`, `drivers/firmware/psci/psci.c`, `scripts/dtc/libfdt/fdt.c` | Image header, entry assembly, PL011 console, `pr_info!`, Linux-style panic, PSCI power-off, DTB header check | Boot, panic and EL2 scenarios all pass |
 | M2 | Memory | `drivers/of/fdt.c`, `mm/memblock.c`, `arch/arm64/include/asm/pgtable-hwdef.h`, `arch/arm64/mm/mmu.c`, `mm/page_alloc.c` (buddy), `mm/slub.c` (ideas only), `kernel/locking/spinlock.c` | Full DTB walker (memory, UART, PSCI method), memblock, buddy page allocator, MMU on with kernel page tables, heap (`GlobalAlloc`), `SpinLock` | Boot log shows 512 MiB found in the DTB; page-allocator stress test; `Vec`/`Box`/`Arc` work; buddy and walker host-tested |
 | M3 | Exceptions, interrupts, timer, first system calls | `arch/arm64/kernel/entry.S`, `arch/arm64/kernel/entry-common.c`, `arch/arm64/kernel/syscall.c`, `drivers/irqchip/irq-gic.c` / `irq-gic-v3.c` (whichever the DTB names), `drivers/clocksource/arm_arch_timer.c`, `scripts/syscall.tbl` | Exception vectors, fault reports, GIC, timer tick, EL0 entry, `svc` dispatch by Linux numbers (`write`=64, `exit`=93) | A Rust user program prints from EL0 and exits; ticks are counted; a user fault is reported, not fatal |
 | M4 | Processes + scheduling | `include/linux/sched.h`, `arch/arm64/kernel/process.c`, `kernel/sched/core.c`, `kernel/sched/fair.c` (EEVDF), `kernel/fork.c`, `kernel/exit.c`, `fs/exec.c`, `fs/binfmt_elf.c`, `include/linux/mm_types.h`, `mm/mmap.c`, `mm/memory.c`, `arch/arm64/mm/fault.c`, `arch/arm64/mm/extable.c` | Task struct, context switch, preemptive scheduler, `clone`/`execve`/`wait4`/`exit`, ELF loader, address spaces and VMAs, page faults, safe `UserPtr` copy-to/from-user | Two processes interleave under preemption; fork+exec+wait test; ELF parser host-tested |
@@ -150,20 +150,20 @@ Build output: `target/aarch64-unknown-none-softfloat/debug/vmlinux` (ELF) and `.
   - `Our Rust design and why it differs`
   - `Open questions`
 
-- [ ] **Step 1: Pin the reference tree to v7.3**
+- [x] **Step 1: Pin the reference tree to v7.3**
 
 Run: `git -C reference/linux checkout -f v7.3`
 
 Expected: `HEAD is now at c03c1a14507d`.
 - `-f` is safe here. The only "modified" files are about 13 netfilter headers whose names differ only in case (for example `xt_CONNMARK.h` and `xt_connmark.h`). macOS APFS is case-insensitive, so it can't hold both versions. They are not real edits.
 
-- [ ] **Step 2: Verify the pin**
+- [x] **Step 2: Verify the pin**
 
 Run: `git -C reference/linux describe --tags`. Expected: `v7.3`.
 
-- [ ] **Step 3: Write `docs/study/TEMPLATE.md`** with the headings listed under Interfaces above.
+- [x] **Step 3: Write `docs/study/TEMPLATE.md`** with the headings listed under Interfaces above.
 
-- [ ] **Step 4: Write `docs/study/00-linux-tree-tour.md`.** Every number in it comes from these commands, run at v7.3. Paste each command next to its result so the note can be reproduced:
+- [x] **Step 4: Write `docs/study/00-linux-tree-tour.md`.** Every number in it comes from these commands, run at v7.3. Paste each command next to its result so the note can be reproduced:
   - Size per top-level directory: `git ls-files -z -- <dir> | grep -zE '\.(c|h|S|rs)$' | xargs -0 cat | wc -l`. At the time of writing, `drivers` was about 26.8M lines out of about 38.9M total.
   - Total commits: `git rev-list --count HEAD`.
   - The first commit: `git log --reverse --format='%h %ad %s' --date=short | head -1`. Expected: `1da177e4c3f4 2005-04-16 Linux-2.6.12-rc2`. Git history starts at that import, so earlier history isn't in this repo.
@@ -172,7 +172,7 @@ Run: `git -C reference/linux describe --tags`. Expected: `v7.3`.
   - Who maintains what: one `MAINTAINERS` entry (`ARM64 PORT`), with its fields explained.
   - A paragraph on each top-level directory we will study: `arch init kernel mm fs drivers include lib`. Explain why we skip most of `drivers/`, `sound/` and `net/`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/study/TEMPLATE.md docs/study/00-linux-tree-tour.md
@@ -194,7 +194,7 @@ git commit -m "docs(study): Linux tree tour at v7.3 and study-note template"
   - `bootlog::check(log: &str, expect: &Expect) -> Result<(), String>`. It turns `\r\n` into `\n` first. The `must_contain` strings must appear in order.
   - The CLI subcommand `cargo xtask test`. For now it runs plain `cargo test` at the workspace root, which covers the default members, so Review Focus 5 is checked on every run. Later tasks add more steps.
 
-- [ ] **Step 1: Install the tools.** This installs software on the Mac, so get the user's OK first.
+- [x] **Step 1: Install the tools.** This installs software on the Mac, so get the user's OK first.
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
@@ -204,20 +204,20 @@ rustup target add aarch64-unknown-none-softfloat
 brew install qemu
 ```
 
-- [ ] **Step 2: Record the versions**
+- [x] **Step 2: Record the versions**
 
 Run: `rustc --version && qemu-system-aarch64 --version | head -1`
 
 Expected: both print versions. The Rust version must be ≥ 1.85, because edition 2024 needs it.
 
-- [ ] **Step 3: Write `rust-toolchain.toml`.** Use `channel = "<exact X.Y.Z from Step 2>"`, `components = ["clippy", "rustfmt", "llvm-tools"]`, `targets = ["aarch64-unknown-none-softfloat"]`, `profile = "minimal"`.
+- [x] **Step 3: Write `rust-toolchain.toml`.** Use `channel = "<exact X.Y.Z from Step 2>"`, `components = ["clippy", "rustfmt", "llvm-tools"]`, `targets = ["aarch64-unknown-none-softfloat"]`, `profile = "minimal"`.
 
-- [ ] **Step 4: Write the workspace.**
+- [x] **Step 4: Write the workspace.**
   - `Cargo.toml`: `[workspace] resolver = "3"`, `members = ["xtask"]`, `default-members = ["xtask"]`, `exclude = ["reference"]`, and `[workspace.package] edition = "2024"`, `version = "0.1.0"`.
   - `.cargo/config.toml`: only the alias `xtask = "run --package xtask --"`.
   - `xtask/Cargo.toml`: no dependencies.
 
-- [ ] **Step 5: Write the failing tests in `xtask/src/qemu.rs`**
+- [x] **Step 5: Write the failing tests in `xtask/src/qemu.rs`**
 
 ```rust
 #[test]
@@ -249,7 +249,7 @@ fn keeps_output_printed_before_timeout() {
 }
 ```
 
-- [ ] **Step 6: Write the failing tests in `xtask/src/bootlog.rs`**
+- [x] **Step 6: Write the failing tests in `xtask/src/bootlog.rs`**
 
 ```rust
 const E: Expect = Expect { must_contain: &["A", "B"], must_not_contain: &["Kernel panic"] };
@@ -267,13 +267,13 @@ const E: Expect = Expect { must_contain: &["A", "B"], must_not_contain: &["Kerne
 }
 ```
 
-- [ ] **Step 7: Run the tests and confirm they fail**
+- [x] **Step 7: Run the tests and confirm they fail**
 
 Run: `cargo test -p xtask`
 
 Expected: compile errors, because `run_with_timeout`, `RunOutcome`, `Exit`, `Expect` and `check` don't exist yet.
 
-- [ ] **Step 8: Implement `run_with_timeout` and `check`.**
+- [x] **Step 8: Implement `run_with_timeout` and `check`.**
   - `run_with_timeout`:
     - Use `Stdio::null()` for stdin and `Stdio::piped()` for stdout and stderr.
     - Start one reader thread per pipe, each appending to an `Arc<Mutex<String>>`.
@@ -283,21 +283,21 @@ Expected: compile errors, because `run_with_timeout`, `RunOutcome`, `Exit`, `Exp
   - `main.rs`: `cargo xtask test` runs `cargo test` at the workspace root as a child process. Any non-zero exit makes xtask exit 1.
   - Every nested `cargo` or QEMU command xtask starts sets `current_dir` to the workspace root (`concat!(env!("CARGO_MANIFEST_DIR"), "/..")`). That keeps `rust-toolchain.toml` and the relative paths valid when xtask is run from a subfolder.
 
-- [ ] **Step 9: Run the tests and confirm they pass**
+- [x] **Step 9: Run the tests and confirm they pass**
 
 Run: `cargo test -p xtask`. Expected: 7 passed.
 
-- [ ] **Step 10: Root cargo test** (Review Focus 5)
+- [x] **Step 10: Root cargo test** (Review Focus 5)
 
 Run: `cargo test` from the repo root. Expected: it passes and builds only the default members.
 
-- [ ] **Step 11: Write `README.md`.** Include:
+- [x] **Step 11: Write `README.md`.** Include:
   - The prerequisites from Step 1.
   - `cargo xtask test`.
   - The crate map from "File Structure".
   - The rule "Linux path X ↔ `kernel/src/X`".
 
-- [ ] **Step 12: Commit**
+- [x] **Step 12: Commit**
 
 ```bash
 git add .gitignore rust-toolchain.toml Cargo.toml .cargo/config.toml README.md xtask
@@ -332,7 +332,7 @@ git commit -m "build: workspace, pinned toolchain, xtask QEMU runner with timeou
 8. If `off_mem_rsvmap` is not in `40..=totalsize` → `Truncated`.
 9. Both the struct block `[off_dt_struct, off_dt_struct + size_dt_struct)` and the strings block must lie inside `[40, totalsize]`. Use `checked_add`; overflow → `Truncated`.
 
-- [ ] **Step 1: Write the failing tests in `klib/src/fdt.rs`.**
+- [x] **Step 1: Write the failing tests in `klib/src/fdt.rs`.**
   - Use a helper `fn blob(f: [u32; 10], len: usize) -> Vec<u8>` that writes the ten fields big-endian and zero-pads to `len`.
   - The valid baseline `OK` is `[FDT_MAGIC, 256, 56, 200, 40, 17, 16, 0, 56, 144]`, with `len = 256`.
 
@@ -358,17 +358,17 @@ git commit -m "build: workspace, pinned toolchain, xtask QEMU runner with timeou
     assert_eq!(FdtHeader::parse(&blob(f, 256)), Err(FdtError::Truncated)); }
 ```
 
-- [ ] **Step 2: Run the tests and confirm they fail**
+- [x] **Step 2: Run the tests and confirm they fail**
 
 Run: `cargo test -p klib`. Expected: compile errors, because `FdtHeader` and `FdtError` aren't defined.
 
-- [ ] **Step 3: Implement `FdtHeader::parse`,** following the rules above in that order.
+- [x] **Step 3: Implement `FdtHeader::parse`,** following the rules above in that order.
 
-- [ ] **Step 4: Run the tests and confirm they pass**
+- [x] **Step 4: Run the tests and confirm they pass**
 
 Run: `cargo xtask test`. Expected: `klib` 9 passed and `xtask` 7 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add Cargo.toml klib
@@ -443,7 +443,7 @@ git commit -m "feat(klib): device-tree header check mirroring libfdt fdt_check_h
   - `rust_kernel: boot OK, powering off`
 - **`vmlinux/build.rs`:** for `target_os == "none"` and `target_arch == "aarch64"` only, print `cargo:rustc-link-arg-bins=-T<abs path to foundation/src/arch/aarch64/kernel.ld>` and `cargo:rerun-if-changed=<same>`.
 
-- [ ] **Step 1: Study the boot path and write `docs/study/01-arm64-boot.md`** from the template. Read these at v7.3 and cite lines:
+- [x] **Step 1: Study the boot path and write `docs/study/01-arm64-boot.md`** from the template. Read these at v7.3 and cite lines:
   - `Documentation/arch/arm64/booting.rst` §4–5: the header, plus the register and MMU state at entry (MMU off, x0 = DTB physical address).
   - `arch/arm64/kernel/head.S`: from `primary_entry` to `__primary_switched` to `start_kernel`. Note `init_kernel_el`, which we defer.
   - `arch/arm64/kernel/vmlinux.lds.S`
@@ -455,38 +455,38 @@ git commit -m "feat(klib): device-tree header check mirroring libfdt fdt_check_h
   - `fdt_check_header` in `scripts/dtc/libfdt/fdt.c`.
   - Under "Our Rust design", explain the `foundation`/`kernel` split, `entry!`, and why the target is softfloat.
 
-- [ ] **Step 2: Write the failing scenario.** In `xtask/src/scenarios.rs`, add `boot`:
+- [x] **Step 2: Write the failing scenario.** In `xtask/src/scenarios.rs`, add `boot`:
   - `features: &[]`, `machine: "virt"`, `timeout: 10 s`
   - `must_contain: ["rust_kernel: booting on aarch64", "rust_kernel: CurrentEL = EL1", "rust_kernel: boot OK, powering off"]`
   - `must_not_contain: ["Kernel panic", "wrong address"]`
 
   Then wire `cargo xtask test` to run the scenarios after the host tests.
 
-- [ ] **Step 3: Run it and confirm it fails**
+- [x] **Step 3: Run it and confirm it fails**
 
 Run: `cargo xtask test`. Expected: FAIL. The `vmlinux` package doesn't exist yet, so the build fails.
 
-- [ ] **Step 4: Implement `foundation`, `kernel` and `vmlinux`.**
+- [x] **Step 4: Implement `foundation`, `kernel` and `vmlinux`.**
   - Use the pinned values above.
   - `vmlinux/src/main.rs` is exactly `#![no_std]`, `#![no_main]`, `foundation::entry!(kernel::init::main::start_kernel);`.
   - `kernel` depends on `foundation`. `vmlinux` depends on both.
   - No atomics, and no `static mut` beyond what `foundation` needs.
 
-- [ ] **Step 5: Check the Image header**
+- [x] **Step 5: Check the Image header**
 
 Run: `cargo xtask build && xxd -l 64 target/aarch64-unknown-none-softfloat/debug/Image`
 
 Expected: bytes 0x08–0x0f are `0000 0800 0000 0000` (text_offset `0x80000`, little-endian), and bytes 0x38–0x3b are `4152 4d64` ("ARMd").
 
-- [ ] **Step 6: Run it and confirm it passes**
+- [x] **Step 6: Run it and confirm it passes**
 
 Run: `cargo xtask test`. Expected: the host tests pass and `scenario boot: ok`.
 
-- [ ] **Step 7: Try it by hand**
+- [x] **Step 7: Try it by hand**
 
 Run: `cargo xtask run`. Expected: the three lines print, and QEMU exits on its own.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add Cargo.toml foundation kernel vmlinux xtask README.md docs/study/01-arm64-boot.md
@@ -512,19 +512,19 @@ git commit -m "feat(arm64): boot Linux-format Image in QEMU, PL011 console, PSCI
   2. Run `FdtHeader::parse(info.dtb)`. On `Err(e)`, panic with `no valid device tree at {dtb_addr:#x}: {e:?}`.
   3. Print `rust_kernel: dtb at {dtb_addr:#x}, totalsize {} bytes, version {}`.
 
-- [ ] **Step 1: Extend the `boot` scenario so it fails.** The `must_contain` list becomes `["rust_kernel: booting on aarch64", "rust_kernel: CurrentEL = EL1", "rust_kernel: dtb at 0x", "version 17", "rust_kernel: boot OK, powering off"]`.
+- [x] **Step 1: Extend the `boot` scenario so it fails.** The `must_contain` list becomes `["rust_kernel: booting on aarch64", "rust_kernel: CurrentEL = EL1", "rust_kernel: dtb at 0x", "version 17", "rust_kernel: boot OK, powering off"]`.
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [x] **Step 2: Run it and confirm it fails**
 
 Run: `cargo xtask test`. Expected: `scenario boot` FAIL, `missing (in order): "rust_kernel: dtb at 0x"`.
 
-- [ ] **Step 3: Implement the rules above.**
+- [x] **Step 3: Implement the rules above.**
 
-- [ ] **Step 4: Run it and confirm it passes**
+- [x] **Step 4: Run it and confirm it passes**
 
 Run: `cargo xtask test`. Expected: all pass. Write the printed DTB address and size into `docs/study/01-arm64-boot.md`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add foundation kernel xtask docs/study/01-arm64-boot.md
@@ -545,7 +545,7 @@ git commit -m "feat(boot): validate the device tree passed in x0 via klib"
 - In `start_kernel`, right after the CurrentEL line: if `current_el != 1`, `panic!("rust_kernel requires EL1, booted at EL{}", current_el)`.
 - After the DTB line: `#[cfg(feature = "test-panic")] panic!("test-panic feature enabled");`
 
-- [ ] **Step 1: Write the failing tests and scenarios.**
+- [x] **Step 1: Write the failing tests and scenarios.**
 
 In `policy.rs`:
 
@@ -567,31 +567,31 @@ Add these scenarios. Both exit as `Exited(Some(0))` because the kernel powers of
 | `panic` | `["test-panic"]` | `"virt"` | `"rust_kernel: booting on aarch64"`, `"Kernel panic - not syncing: test-panic feature enabled"`, `"---[ end Kernel panic - not syncing: test-panic feature enabled ]---"` | `"boot OK"` |
 | `el2` | `[]` | `"virt,virtualization=on"` | `"rust_kernel: CurrentEL = EL2"`, `"Kernel panic - not syncing: rust_kernel requires EL1, booted at EL2"` | `"boot OK"` |
 
-- [ ] **Step 2: Run them and confirm they fail**
+- [x] **Step 2: Run them and confirm they fail**
 
 Run: `cargo xtask test`. Expected:
 - `policy` fails to compile until `external_crates` exists.
 - `scenario panic` fails, because the feature doesn't exist yet.
 - `scenario el2` fails on `missing (in order): "Kernel panic - not syncing: rust_kernel requires EL1…"`.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - Add the kernel changes above and `external_crates` (the first word of each non-empty line, keeping names not in `allowed`).
   - Then make `cargo xtask test` also run:
     - `cargo tree -p vmlinux --target aarch64-unknown-none-softfloat -e normal --prefix none`. Fail if `external_crates` returns anything outside `["vmlinux", "foundation", "kernel", "klib"]`.
     - `cargo clippy -p vmlinux -p foundation -p kernel -p klib --target aarch64-unknown-none-softfloat -- -D warnings`.
 
-- [ ] **Step 4: Run them and confirm they pass**
+- [x] **Step 4: Run them and confirm they pass**
 
 Run: `cargo xtask test`. Expected: host tests, policy, clippy and the scenarios `boot`, `panic` and `el2` all OK.
 
 If `el2` prints its panic line and then reports `TimedOut`, the `smc` power-off conduit at EL2 is wrong, not the kernel. Check the `/psci` `method` in QEMU's DTB with `-machine virt,virtualization=on,dumpdtb=virt.dtb` and `dtc -I dtb virt.dtb`. Then change the conduit choice to match.
 
-- [ ] **Step 5: Prove the safety wall fires.** This is a one-time manual check.
+- [x] **Step 5: Prove the safety wall fires.** This is a one-time manual check.
   - Temporarily add `fn _probe() { unsafe {} }` to `kernel/src/lib.rs`.
   - Run `cargo xtask build`. Expected: an error saying an `unsafe` block is used.
   - Remove the probe. Write the error text into `docs/study/01-arm64-boot.md` under "Our Rust design".
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add kernel vmlinux xtask README.md docs/study/01-arm64-boot.md

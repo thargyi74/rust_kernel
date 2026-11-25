@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! `cargo xtask <command>`: build, run and test rust_kernel from the Mac.
+//! Linux counterpart: `scripts/` and the top-level `Makefile`.
+#![forbid(unsafe_code)]
 
 mod bootlog;
 mod policy;

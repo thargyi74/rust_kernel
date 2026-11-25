@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 //! From assembly to Rust: build `BootInfo` and call the kernel.
+//! Linux counterpart: `__primary_switched` (`arch/arm64/kernel/head.S:220`),
+//! which stores the FDT pointer and calls `start_kernel`.
 
 use crate::boot::BootInfo;
 use crate::{console, power};

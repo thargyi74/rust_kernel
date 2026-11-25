@@ -6,6 +6,12 @@ A Linux-like kernel written in pure Rust, built as a learning project. We study 
 - Study notes: [`docs/study/`](docs/study/)
 - License: GPL-2.0-only, the same as Linux (see `LICENSE`).
 
+## Status
+
+- **M0** (toolchain, workspace, test harness): done.
+- **M1** (ARM64 boot to the serial console): done.
+- **M2** (memory): planned, see [`docs/superpowers/plans/2026-11-25-m2-memory.md`](docs/superpowers/plans/2026-11-25-m2-memory.md).
+
 ## Prerequisites (macOS, Apple Silicon)
 
 ```sh
@@ -44,6 +50,7 @@ Expected `cargo xtask run` output:
 ```
 rust_kernel: booting on aarch64
 rust_kernel: CurrentEL = EL1
+rust_kernel: dtb at 0x48000000, totalsize 1048576 bytes, version 17
 rust_kernel: boot OK, powering off
 ```
 
@@ -51,7 +58,7 @@ rust_kernel: boot OK, powering off
 
 | Crate | Builds for | `unsafe`? | Linux counterpart |
 |---|---|---|---|
-| `xtask` | the Mac | (host tool) | `scripts/`, `Makefile` |
+| `xtask` | the Mac | forbidden (host tool) | `scripts/`, `Makefile` |
 | `klib` | the Mac + kernel | forbidden | `lib/` (algorithms that can be tested on the host) |
 | `foundation` | kernel | **only here** | `arch/*`, the low-level parts of `mm/`, and locking |
 | `kernel` | kernel | forbidden | `init/`, `kernel/`, `mm/`, `fs/`, `drivers/` |

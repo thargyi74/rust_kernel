@@ -8,7 +8,7 @@
 ## Fixed rules
 
 **Code**
-- All `unsafe` code lives in `foundation`. Every other crate has `#![forbid(unsafe_code)]`.
+- All `unsafe` code lives in `foundation`. Every other crate has `#![forbid(unsafe_code)]`, except `vmlinux`, whose one-line entry glue needs `#[unsafe(no_mangle)]`.
 - No crates.io crates, only `core` and `alloc`. `cargo xtask test` checks this.
 - The license is GPL-2.0-only. Every `.rs` file starts with the SPDX line and names its Linux counterpart.
 - Run `. "$HOME/.cargo/env"` first in every shell.
