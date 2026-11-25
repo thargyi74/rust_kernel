@@ -44,7 +44,7 @@ Every milestone goes through the steps below. Each step is its own fresh session
 2. **Plan.** Do this once the user has answered.
    - Use superpowers:writing-plans to write `docs/superpowers/plans/<date>-mN-<topic>.md`. Base it on the code as it is now.
    - Split it into parts of 3–5 tasks, with an "Execution in parts" section like the M2 plan's.
-   - Give a rough token-cost estimate. For scale, M1 took about 26M cached re-read tokens, 0.34M new input and 0.18M output.
+   - Give a rough token-cost estimate. For scale, M0 and M1 together took about 26M cached re-read tokens, 0.33M new input and 0.17M output (M0 about 4M / 0.03M / 0.02M, M1 about 22M / 0.30M / 0.15M).
    - Ask the user to review the plan.
 3. **Build, one part per session.** Follow the plan's "Execution in parts" rules: superpowers:executing-plans, Native, with a fresh Opus reviewer at the end of each part.
 4. **Close.** Do this at the end of the last part's session.
