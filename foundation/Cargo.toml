@@ -8,3 +8,7 @@ publish = false
 
 [dependencies]
 klib = { path = "../klib" }
+
+[features]
+# Functions that fault on purpose, for the QEMU scenarios.
+test-hooks = []

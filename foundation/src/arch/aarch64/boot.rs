@@ -22,6 +22,9 @@ unsafe extern "Rust" {
 /// Called from `head.rs` with a valid stack and a zeroed .bss.
 #[unsafe(no_mangle)]
 extern "C" fn __rust_boot(dtb_addr: usize, runtime_start: usize, linked_start: usize) -> ! {
+    // First of all, so that any fault from here on is reported, not a hang.
+    super::vectors::install();
+
     // Formatting uses tables of absolute addresses, which are only right if we
     // run where we were linked. Check that first, using plain writes only.
     // Since M2 the console comes from the device tree, so this message is

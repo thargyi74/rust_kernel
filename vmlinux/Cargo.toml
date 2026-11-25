@@ -12,3 +12,4 @@ kernel = { path = "../kernel" }
 
 [features]
 test-panic = ["kernel/test-panic"]
+test-fault = ["kernel/test-fault"]

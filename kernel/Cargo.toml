@@ -13,3 +13,5 @@ klib = { path = "../klib" }
 [features]
 # Panic on purpose after the device-tree line, to test the panic path.
 test-panic = []
+# Hit a breakpoint after PSCI setup, to test the early exception report.
+test-fault = ["foundation/test-hooks"]

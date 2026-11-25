@@ -4,6 +4,7 @@
 mod boot;
 mod head;
 mod psci;
+pub(crate) mod vectors;
 
 use core::arch::asm;
 
@@ -25,4 +26,12 @@ pub(crate) fn halt() -> ! {
         // SAFETY: `wfe` only waits for an event; it touches no memory.
         unsafe { asm!("wfe", options(nomem, nostack, preserves_flags)) };
     }
+}
+
+/// A breakpoint with immediate 0x123, for the `fault` scenario.
+#[cfg(feature = "test-hooks")]
+pub(crate) fn breakpoint() {
+    // SAFETY: `brk` raises a synchronous exception, which the early vectors
+    // report before powering off; it touches no memory itself.
+    unsafe { asm!("brk #0x123", options(nomem, nostack)) };
 }

@@ -26,6 +26,8 @@ pub fn start_kernel(info: BootInfo) -> ! {
         header.version
     );
     psci_dt_init(&fdt);
+    #[cfg(feature = "test-fault")]
+    foundation::testing::breakpoint();
 
     // Linux drops from EL2 to EL1 in `init_kernel_el` (head.S); we do not yet.
     if info.current_el != 1 {

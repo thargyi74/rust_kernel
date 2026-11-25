@@ -15,3 +15,5 @@ compile_error!("foundation supports only bare-metal aarch64 so far (build it thr
 pub const NAME: &str = imp::NAME;
 
 pub(crate) use imp::{halt, system_off};
+#[cfg(feature = "test-hooks")]
+pub(crate) use imp::breakpoint;

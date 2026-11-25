@@ -14,3 +14,5 @@ pub mod boot;
 pub mod console;
 mod drivers;
 pub mod power;
+#[cfg(feature = "test-hooks")]
+pub mod testing;
