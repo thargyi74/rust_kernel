@@ -2,6 +2,7 @@
 //! `cargo xtask <command>`: build, run and test rust_kernel from the Mac.
 
 mod bootlog;
+mod policy;
 mod qemu;
 mod scenarios;
 
@@ -16,9 +17,11 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let rest: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
     let result = match args.first().map(String::as_str) {
-        Some("build") => features_arg(&rest).and_then(|f| build_image(&f)).map(|image| {
-            println!("{}", image.display());
-        }),
+        Some("build") => features_arg(&rest)
+            .and_then(|f| build_image(&f))
+            .map(|image| {
+                println!("{}", image.display());
+            }),
         Some("run") => run_interactive(rest.contains(&"--el2")),
         Some("test") => test(),
         _ => Err(usage()),
@@ -60,7 +63,9 @@ fn cargo() -> Command {
 
 /// Runs `cmd` with output shown live; any non-zero exit is an error.
 fn run(mut cmd: Command, what: &str) -> Result<(), String> {
-    let status = cmd.status().map_err(|e| format!("{what}: cannot start: {e}"))?;
+    let status = cmd
+        .status()
+        .map_err(|e| format!("{what}: cannot start: {e}"))?;
     if status.success() {
         Ok(())
     } else {
@@ -70,9 +75,14 @@ fn run(mut cmd: Command, what: &str) -> Result<(), String> {
 
 /// Runs `cmd` and returns its stdout; any non-zero exit is an error.
 fn capture(mut cmd: Command, what: &str) -> Result<String, String> {
-    let out = cmd.output().map_err(|e| format!("{what}: cannot start: {e}"))?;
+    let out = cmd
+        .output()
+        .map_err(|e| format!("{what}: cannot start: {e}"))?;
     if !out.status.success() {
-        return Err(format!("{what}: failed: {}", String::from_utf8_lossy(&out.stderr)));
+        return Err(format!(
+            "{what}: failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
@@ -97,7 +107,10 @@ fn llvm_objcopy() -> Result<PathBuf, String> {
     if tool.exists() {
         Ok(tool)
     } else {
-        Err(format!("{} not found (rustup component add llvm-tools)", tool.display()))
+        Err(format!(
+            "{} not found (rustup component add llvm-tools)",
+            tool.display()
+        ))
     }
 }
 
@@ -114,7 +127,11 @@ fn build_image(features: &[String]) -> Result<PathBuf, String> {
     let out_dir = root().join("target").join(KERNEL_TARGET).join("debug");
     let image = out_dir.join("Image");
     let mut objcopy = Command::new(llvm_objcopy()?);
-    objcopy.arg("-O").arg("binary").arg(out_dir.join("vmlinux")).arg(&image);
+    objcopy
+        .arg("-O")
+        .arg("binary")
+        .arg(out_dir.join("vmlinux"))
+        .arg(&image);
     run(objcopy, "llvm-objcopy")?;
     Ok(image)
 }
@@ -133,7 +150,11 @@ fn qemu_command(image: &Path, machine: &str) -> Command {
 
 fn run_interactive(el2: bool) -> Result<(), String> {
     let image = build_image(&[])?;
-    let machine = if el2 { "virt,virtualization=on" } else { "virt" };
+    let machine = if el2 {
+        "virt,virtualization=on"
+    } else {
+        "virt"
+    };
     println!("xtask: starting QEMU (quit with Ctrl-A then X)");
     run(qemu_command(&image, machine), "qemu-system-aarch64")
 }
@@ -144,6 +165,21 @@ fn test() -> Result<(), String> {
     let mut host = cargo();
     host.arg("test");
     run(host, "host tests (cargo test)")?;
+
+    // No crates.io dependencies anywhere in the kernel's tree.
+    let mut tree = cargo();
+    tree.args(["tree", "-p", "vmlinux", "--target", KERNEL_TARGET, "-e", "normal", "--prefix", "none"]);
+    let external = policy::external_crates(&capture(tree, "cargo tree")?, policy::KERNEL_CRATES);
+    if !external.is_empty() {
+        return Err(format!("kernel depends on outside crates (not allowed): {external:?}"));
+    }
+    println!("xtask: policy: no outside crates");
+
+    // Lints for every kernel crate, including clippy::undocumented_unsafe_blocks.
+    let mut clippy = cargo();
+    clippy.args(["clippy", "-p", "vmlinux", "-p", "foundation", "-p", "kernel", "-p", "klib"]);
+    clippy.args(["--target", KERNEL_TARGET, "--", "-D", "warnings"]);
+    run(clippy, "cargo clippy (kernel crates)")?;
 
     for s in scenarios::SCENARIOS {
         let features: Vec<String> = s.features.iter().map(|f| f.to_string()).collect();

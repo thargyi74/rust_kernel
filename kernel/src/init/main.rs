@@ -11,6 +11,10 @@ use klib::fdt::FdtHeader;
 pub fn start_kernel(info: BootInfo) -> ! {
     pr_info!("rust_kernel: booting on {}", foundation::arch::NAME);
     pr_info!("rust_kernel: CurrentEL = EL{}", info.current_el);
+    // Linux drops from EL2 to EL1 in `init_kernel_el` (head.S); we do not yet.
+    if info.current_el != 1 {
+        panic!("rust_kernel requires EL1, booted at EL{}", info.current_el);
+    }
 
     check_dtb_placement(&info);
     let fdt = FdtHeader::parse(info.dtb)
@@ -21,6 +25,13 @@ pub fn start_kernel(info: BootInfo) -> ! {
         fdt.totalsize,
         fdt.version
     );
+
+    // `cfg!` (not `#[cfg]`) keeps the code after it reachable, so the
+    // test-panic build has no "unreachable statement" warning.
+    if cfg!(feature = "test-panic") {
+        panic!("test-panic feature enabled");
+    }
+
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()
 }

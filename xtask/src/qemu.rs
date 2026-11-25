@@ -40,8 +40,20 @@ pub fn run_with_timeout(mut cmd: Command, timeout: Duration) -> io::Result<RunOu
 
     let output = Arc::new(Mutex::new(String::new()));
     let readers = [
-        spawn_reader(child.stdout.take().map(|p| Box::new(p) as Box<dyn Read + Send>), &output),
-        spawn_reader(child.stderr.take().map(|p| Box::new(p) as Box<dyn Read + Send>), &output),
+        spawn_reader(
+            child
+                .stdout
+                .take()
+                .map(|p| Box::new(p) as Box<dyn Read + Send>),
+            &output,
+        ),
+        spawn_reader(
+            child
+                .stderr
+                .take()
+                .map(|p| Box::new(p) as Box<dyn Read + Send>),
+            &output,
+        ),
     ];
 
     let deadline = Instant::now() + timeout;

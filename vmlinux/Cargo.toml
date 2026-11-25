@@ -9,3 +9,6 @@ publish = false
 [dependencies]
 foundation = { path = "../foundation" }
 kernel = { path = "../kernel" }
+
+[features]
+test-panic = ["kernel/test-panic"]

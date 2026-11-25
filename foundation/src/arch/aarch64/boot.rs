@@ -47,7 +47,7 @@ extern "C" fn __rust_boot(dtb_addr: usize, runtime_start: usize, linked_start: u
 /// slice are read here; `klib::fdt::FdtHeader::parse` checks the rest.
 fn device_tree(addr: usize) -> &'static [u8] {
     // booting.rst §2: the DTB is 8-byte aligned and at most 2 MiB.
-    if addr == 0 || addr % 8 != 0 {
+    if addr == 0 || !addr.is_multiple_of(8) {
         return &[];
     }
     let ptr = addr as *const u8;

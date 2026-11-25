@@ -32,6 +32,13 @@ git -C reference/linux checkout v7.3
 | `cargo xtask build` | Builds `target/aarch64-unknown-none-softfloat/debug/Image` (the file QEMU boots) |
 | `cargo test` | Runs only the host unit tests (`xtask`, `klib`) |
 
+`cargo xtask test` boots three scenarios:
+- `boot`: a normal boot.
+- `panic`: built with `--features test-panic`; it must print Linux's panic banner and power off.
+- `el2`: QEMU started at EL2; the kernel must refuse with a clear panic message.
+
+It also checks that the kernel depends on no outside crates, and it runs clippy on every kernel crate.
+
 Expected `cargo xtask run` output:
 
 ```

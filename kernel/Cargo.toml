@@ -9,3 +9,7 @@ publish = false
 [dependencies]
 foundation = { path = "../foundation" }
 klib = { path = "../klib" }
+
+[features]
+# Panic on purpose after the device-tree line, to test the panic path.
+test-panic = []

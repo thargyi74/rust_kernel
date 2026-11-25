@@ -16,19 +16,48 @@ pub struct Scenario {
     pub timeout: Duration,
 }
 
-pub const SCENARIOS: &[Scenario] = &[Scenario {
-    name: "boot",
-    features: &[],
-    machine: "virt",
-    expect: Expect {
-        must_contain: &[
-            "rust_kernel: booting on aarch64",
-            "rust_kernel: CurrentEL = EL1",
-            "rust_kernel: dtb at 0x",
-            "version 17",
-            "rust_kernel: boot OK, powering off",
-        ],
-        must_not_contain: &["Kernel panic", "wrong address"],
+pub const SCENARIOS: &[Scenario] = &[
+    Scenario {
+        name: "boot",
+        features: &[],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &[
+                "rust_kernel: booting on aarch64",
+                "rust_kernel: CurrentEL = EL1",
+                "rust_kernel: dtb at 0x",
+                "version 17",
+                "rust_kernel: boot OK, powering off",
+            ],
+            must_not_contain: &["Kernel panic", "wrong address"],
+        },
+        timeout: Duration::from_secs(10),
     },
-    timeout: Duration::from_secs(10),
-}];
+    Scenario {
+        name: "panic",
+        features: &["test-panic"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &[
+                "rust_kernel: booting on aarch64",
+                "Kernel panic - not syncing: test-panic feature enabled",
+                "---[ end Kernel panic - not syncing: test-panic feature enabled ]---",
+            ],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },
+    Scenario {
+        name: "el2",
+        features: &[],
+        machine: "virt,virtualization=on",
+        expect: Expect {
+            must_contain: &[
+                "rust_kernel: CurrentEL = EL2",
+                "Kernel panic - not syncing: rust_kernel requires EL1, booted at EL2",
+            ],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },
+];

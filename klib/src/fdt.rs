@@ -104,7 +104,7 @@ impl FdtHeader {
 
         // The memory-reservation map holds u64 pairs; the structure block holds
         // u32 tokens (FDT_TAGSIZE).
-        if h.off_mem_rsvmap % 8 != 0 || h.off_dt_struct % 4 != 0 {
+        if !h.off_mem_rsvmap.is_multiple_of(8) || !h.off_dt_struct.is_multiple_of(4) {
             return Err(FdtError::Alignment);
         }
 

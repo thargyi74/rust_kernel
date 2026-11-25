@@ -90,6 +90,17 @@
 | C everywhere | All `unsafe` code is in `foundation`. `start_kernel` and `panic` are in `kernel`, which is `#![forbid(unsafe_code)]` | The compiler guarantees that `kernel` contains no `unsafe` code. |
 | `-mgeneral-regs-only` for C | target `aarch64-unknown-none-softfloat` | Same reason: the kernel never touches FP/SIMD registers, so the user's FP state never needs saving on kernel entry. Linux's own Rust build uses this exact target (`arch/arm64/Makefile:52`). |
 
+**The safety wall works.** We added `fn _probe() { unsafe {} }` to `kernel/src/lib.rs` on purpose, and `cargo xtask build` refused it:
+
+```
+error: usage of an `unsafe` block
+  --> kernel/src/lib.rs:14:5
+  --> kernel/src/lib.rs:8:11
+ 8 | #![forbid(unsafe_code)]
+```
+
+`forbid` is stronger than `deny`: no `#[allow]` further down can turn it off. That is why it guards the whole `kernel` crate.
+
 **What QEMU actually passes** (from our boot log, `-m 512M`): `dtb at 0x48000000, totalsize 1048576 bytes, version 17`.
 - QEMU puts the DTB 128 MiB into RAM (RAM starts at `0x4000_0000`), far from our image at `0x4008_0000`.
 - QEMU pads the DTB to exactly 1 MiB, inside Linux's 2 MiB limit (`MAX_FDT_SIZE`).

@@ -48,12 +48,20 @@ mod tests {
 
     #[test]
     fn reports_missing_line() {
-        assert!(check("A\n", &E).unwrap_err().contains("missing (in order): \"B\""));
+        assert!(
+            check("A\n", &E)
+                .unwrap_err()
+                .contains("missing (in order): \"B\"")
+        );
     }
 
     #[test]
     fn enforces_order() {
-        assert!(check("B\nA\n", &E).unwrap_err().contains("missing (in order): \"B\""));
+        assert!(
+            check("B\nA\n", &E)
+                .unwrap_err()
+                .contains("missing (in order): \"B\"")
+        );
     }
 
     #[test]
