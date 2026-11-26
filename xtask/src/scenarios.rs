@@ -32,6 +32,7 @@ pub const SCENARIOS: &[Scenario] = &[
                 "Early memory node ranges",
                 "  node   0: [mem 0x0000000040000000-0x000000005fffffff]",
                 "rust_kernel: MMU on",
+                "rust_kernel: spinlock self-test OK",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address", "early exception"],
@@ -105,6 +106,30 @@ pub const SCENARIOS: &[Scenario] = &[
                 "  ESR = 0x0000000096",
                 "  FAR = 0xffffff0000000000",
             ],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },
+    Scenario {
+        // A SpinLock taken with the MMU off must panic, not fault: its
+        // read-modify-write atomics fault on Device memory.
+        name: "early-lock",
+        features: &["test-early-lock"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &["Kernel panic - not syncing: SpinLock used before the MMU is on"],
+            must_not_contain: &["MMU on"],
+        },
+        timeout: Duration::from_secs(10),
+    },
+    Scenario {
+        // The panic message itself panics. The guard must stop the second
+        // panic, not recurse until the stack overflows.
+        name: "recursive-panic",
+        features: &["test-recursive-panic"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &["Kernel panic - not syncing: ", "rust_kernel: recursive panic, powering off"],
             must_not_contain: &["boot OK"],
         },
         timeout: Duration::from_secs(10),

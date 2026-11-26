@@ -10,4 +10,7 @@
 pub mod drivers;
 pub mod init;
 pub mod kernel;
+// `pub mod lib;` would clash with this file, the crate root (E0761).
+#[path = "lib/mod.rs"]
+pub mod lib;
 pub mod mm;

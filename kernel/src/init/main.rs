@@ -2,6 +2,7 @@
 //! Linux counterpart: `init/main.c`.
 
 use crate::drivers::firmware::psci::psci_dt_init;
+use crate::lib::locking_selftest::locking_selftest;
 use crate::mm::memblock::memblock_init;
 use crate::mm::mm_init::print_memory_node_ranges;
 use crate::pr_info;
@@ -29,6 +30,10 @@ pub fn start_kernel(info: BootInfo) -> ! {
         header.version
     );
     psci_dt_init(&fdt);
+    // After PSCI, so the guard's power-off works.
+    if cfg!(feature = "test-recursive-panic") {
+        panic!("{}", PanicsWhenShown);
+    }
     #[cfg(feature = "test-fault")]
     foundation::testing::breakpoint();
     #[cfg(feature = "test-nested-fault")]
@@ -51,11 +56,14 @@ pub fn start_kernel(info: BootInfo) -> ! {
 
     let mut memblock = memblock_init(&fdt);
     print_memory_node_ranges(&memblock);
+    #[cfg(feature = "test-early-lock")]
+    drop(foundation::sync::SpinLock::new(()).lock());
     // Linux calls `paging_init` from `setup_arch`.
     let _mmu = paging_init(&mut memblock).unwrap_or_else(|e| panic!("paging_init: {:?}", e));
     pr_info!("rust_kernel: MMU on");
     #[cfg(feature = "test-unmapped")]
     foundation::testing::read_unmapped();
+    locking_selftest();
 
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()
@@ -71,5 +79,14 @@ fn check_dtb_placement(info: &BootInfo) {
             "device tree at {:#x} overlaps kernel image {:#x}..{:#x}",
             info.dtb_addr, info.image.start, info.image.end
         );
+    }
+}
+
+/// A value whose `Display` panics, for the `recursive-panic` scenario.
+struct PanicsWhenShown;
+
+impl core::fmt::Display for PanicsWhenShown {
+    fn fmt(&self, _: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        panic!("Display of PanicsWhenShown")
     }
 }

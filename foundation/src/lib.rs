@@ -15,5 +15,6 @@ pub mod console;
 mod drivers;
 pub mod mm;
 pub mod power;
+pub mod sync;
 #[cfg(feature = "test-hooks")]
 pub mod testing;
