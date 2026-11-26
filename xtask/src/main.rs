@@ -89,9 +89,9 @@ fn capture(mut cmd: Command, what: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// `llvm-objcopy` from the toolchain's `llvm-tools` component:
-/// `<sysroot>/lib/rustlib/<host triple>/bin/llvm-objcopy`.
-fn llvm_objcopy() -> Result<PathBuf, String> {
+/// An LLVM tool (`llvm-objcopy`, `llvm-objdump`) from the toolchain's
+/// `llvm-tools` component: `<sysroot>/lib/rustlib/<host triple>/bin/<name>`.
+fn llvm_tool(name: &str) -> Result<PathBuf, String> {
     let mut sysroot = Command::new("rustc");
     sysroot.current_dir(root()).args(["--print", "sysroot"]);
     let sysroot = capture(sysroot, "rustc --print sysroot")?;
@@ -105,7 +105,8 @@ fn llvm_objcopy() -> Result<PathBuf, String> {
     let tool = Path::new(sysroot.trim())
         .join("lib/rustlib")
         .join(host)
-        .join("bin/llvm-objcopy");
+        .join("bin")
+        .join(name);
     if tool.exists() {
         Ok(tool)
     } else {
@@ -128,7 +129,7 @@ fn build_image(features: &[String]) -> Result<PathBuf, String> {
 
     let out_dir = target_dir()?.join(KERNEL_TARGET).join("debug");
     let image = out_dir.join("Image");
-    let mut objcopy = Command::new(llvm_objcopy()?);
+    let mut objcopy = Command::new(llvm_tool("llvm-objcopy")?);
     objcopy
         .arg("-O")
         .arg("binary")
@@ -189,6 +190,31 @@ fn run_interactive(el2: bool) -> Result<(), String> {
     run(qemu_command(&image, machine), "qemu-system-aarch64")
 }
 
+/// The MMU-off rule (see `policy`): in the default kernel, atomic
+/// read-modify-write only in `policy::ALLOWED_RMW`, and no `dc zva`.
+fn check_mmu_off_instructions() -> Result<(), String> {
+    build_image(&[])?;
+    let vmlinux = target_dir()?.join(KERNEL_TARGET).join("debug").join("vmlinux");
+    let mut objdump = Command::new(llvm_tool("llvm-objdump")?);
+    objdump.args(["-d", "--no-show-raw-insn", "-C"]).arg(&vmlinux);
+    let disasm = capture(objdump, "llvm-objdump")?;
+    let rmw: Vec<String> = policy::functions_using(&disasm, policy::Forbidden::Rmw)
+        .into_iter()
+        .filter(|f| !policy::ALLOWED_RMW.contains(&f.as_str()))
+        .collect();
+    if !rmw.is_empty() {
+        return Err(format!(
+            "atomic read-modify-write outside SpinLock (breaks with the MMU off): {rmw:?}"
+        ));
+    }
+    let zva = policy::functions_using(&disasm, policy::Forbidden::DcZva);
+    if !zva.is_empty() {
+        return Err(format!("`dc zva` (faults with the MMU off) in: {zva:?}"));
+    }
+    println!("xtask: policy: no read-modify-write outside SpinLock, no dc zva");
+    Ok(())
+}
+
 fn test() -> Result<(), String> {
     // Plain `cargo test` at the root covers exactly the host crates listed in
     // default-members; it must keep working (Review Focus 5).
@@ -212,6 +238,8 @@ fn test() -> Result<(), String> {
     clippy.args(["clippy", "-p", "vmlinux", "-p", "foundation", "-p", "kernel", "-p", "klib"]);
     clippy.args(["--target", KERNEL_TARGET, "--", "-D", "warnings"]);
     run(clippy, "cargo clippy (kernel crates)")?;
+
+    check_mmu_off_instructions()?;
 
     for s in scenarios::SCENARIOS {
         let features: Vec<String> = s.features.iter().map(|f| f.to_string()).collect();

@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: GPL-2.0-only
 //! The QEMU boot scenarios that `cargo xtask test` runs. Each one boots the
 //! kernel, captures the serial console and checks it.
@@ -111,8 +110,8 @@ pub const SCENARIOS: &[Scenario] = &[
         timeout: Duration::from_secs(10),
     },
     Scenario {
-        // A SpinLock taken with the MMU off must panic, not fault: its
-        // read-modify-write atomics fault on Device memory.
+        // A SpinLock taken with the MMU off must panic: its read-modify-write
+        // atomics are unreliable on Device memory (QEMU runs them anyway).
         name: "early-lock",
         features: &["test-early-lock"],
         machine: "virt",

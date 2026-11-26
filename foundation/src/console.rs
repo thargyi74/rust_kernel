@@ -13,7 +13,8 @@ use core::fmt;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 /// UART base address; 0 means no console yet. Only plain loads and stores:
-/// this runs with the MMU off, where read-modify-write atomics fault.
+/// this runs with the MMU off, where read-modify-write atomics are
+/// unreliable on real hardware.
 static UART_BASE: AtomicUsize = AtomicUsize::new(0);
 /// Size of the UART's `reg` window.
 static UART_SIZE: AtomicUsize = AtomicUsize::new(0);

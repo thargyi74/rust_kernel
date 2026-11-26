@@ -10,7 +10,9 @@ use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
 ///
 /// A plain load and store, not `swap`: the handler also runs with the MMU
 /// off (the `panic` and `el2` scenarios), where read-modify-write atomics
-/// fault. With one CPU that is enough; M7 (SMP) must make it a `swap`.
+/// are unreliable on real hardware. QEMU runs them anyway, so `cargo xtask
+/// test` checks the disassembly instead. With one CPU, load and store are
+/// enough; M7 (SMP) must revisit this.
 static PANICKING: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "none")]

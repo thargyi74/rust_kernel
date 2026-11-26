@@ -42,8 +42,8 @@ impl<T> SpinLock<T> {
     ///
     /// # Panics
     ///
-    /// If the MMU is off: the read-modify-write atomics would fault on the
-    /// Device memory the CPU sees then.
+    /// If the MMU is off: its read-modify-write atomics are unreliable on
+    /// the Device memory the CPU sees then (QEMU happens to run them).
     pub fn lock(&self) -> SpinLockGuard<'_, T> {
         assert!(mmu_enabled(), "SpinLock used before the MMU is on");
         let ticket = self.next.fetch_add(1, Relaxed);
