@@ -58,3 +58,17 @@ Every milestone goes through the steps below. Each step is its own fresh session
 - M0 and M1: done and pushed.
 - M2 Part 1 (Tasks 1–5) and Part 2 (Tasks 6–8): done and reviewed, not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md`.
 - **M2: next is Part 3 (Tasks 9–10)** of `docs/superpowers/plans/2026-11-25-m2-memory.md`. Follow its "Execution in 3 parts" section. Read Decision 7 first (and "How Part 2 applied it"), then the Task 9 interfaces, which changed after the Part 2 review.
+
+**Side step, outside the milestone cycle** (the user chose it on 2026-11-26). It is open, and runs only when the user starts a session with: `Do the Redox side study (see CLAUDE.md).` In that session, do only this, and don't change the milestone "next" line above.
+- **Goal:** one study note, `docs/study/redox-overview.md`. It compares the Redox OS kernel (a Rust microkernel, MIT license) with Linux and with our design. Use `docs/study/TEMPLATE.md` where it fits.
+- **Source:** clone `https://gitlab.redox-os.org/redox-os/kernel` into `reference/redox` and pin it to a release tag. `reference/` is git-ignored; never commit it. Read the code, not the website: `doc.redox-os.org` refused automated reads (HTTP 403).
+- **Topics:**
+  - what runs in the kernel and what runs in user space ("schemes");
+  - the ARM64 boot;
+  - memory: page tables, the frame allocator and the heap;
+  - how `unsafe` code is kept in one place;
+  - task switching;
+  - system-call entry.
+- **For each topic:** say how Linux does it, how we do it (or plan to), and whether we should change anything. Cite `file:line` in `reference/redox` and check every citation.
+- **Rules:** we learn from Redox; we don't copy its code. Quote only short excerpts. Our "no crates" rule still holds, even though Redox uses crates.
+- **Finish:** commit the note, mark this side step done here, and end by asking the user the note's open questions.
