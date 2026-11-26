@@ -17,3 +17,4 @@ test-panic = []
 test-fault = ["foundation/test-hooks"]
 # Break the console, then hit a breakpoint: the fault report itself faults.
 test-nested-fault = ["foundation/test-hooks"]
+test-unmapped = ["foundation/test-hooks"]

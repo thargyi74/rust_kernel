@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: GPL-2.0-only
 //! The QEMU boot scenarios that `cargo xtask test` runs. Each one boots the
 //! kernel, captures the serial console and checks it.
@@ -30,6 +31,7 @@ pub const SCENARIOS: &[Scenario] = &[
                 "psci: probing for conduit method from DT.",
                 "Early memory node ranges",
                 "  node   0: [mem 0x0000000040000000-0x000000005fffffff]",
+                "rust_kernel: MMU on",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address", "early exception"],
@@ -86,6 +88,23 @@ pub const SCENARIOS: &[Scenario] = &[
         machine: "virt",
         expect: Expect {
             must_contain: &["psci: probing for conduit method from DT."],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },
+    Scenario {
+        // A read of an address no table maps, right after the MMU is on.
+        // EC 0x25 (data abort at the current EL) makes ESR start 0x96.
+        name: "unmapped",
+        features: &["test-unmapped"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &[
+                "rust_kernel: MMU on",
+                "rust_kernel: early exception: el1h_64_sync",
+                "  ESR = 0x0000000096",
+                "  FAR = 0xffffff0000000000",
+            ],
             must_not_contain: &["boot OK"],
         },
         timeout: Duration::from_secs(10),

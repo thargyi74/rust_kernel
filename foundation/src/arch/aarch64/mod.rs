@@ -3,11 +3,15 @@
 
 mod boot;
 mod head;
+mod mmu;
+mod paging;
 mod psci;
 pub(crate) mod vectors;
 
 use core::arch::asm;
 
+pub(crate) use mmu::mmu_enabled;
+pub(crate) use paging::{enable_paging, image_layout};
 pub(crate) use psci::system_off;
 
 pub const NAME: &str = "aarch64";

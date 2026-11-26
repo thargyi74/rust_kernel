@@ -6,6 +6,10 @@
  * QEMU loads a Linux-format Image at RAM base (0x40000000) + text_offset
  * (0x80000, see head.rs). We link at exactly that address because the MMU is
  * off and nothing relocates us.
+ *
+ * Since M2 the image is identity-mapped with per-section permissions, so
+ * .rodata, .data and the end of the image each start on a page boundary
+ * (Linux: SEGMENT_ALIGN). The symbols below feed image_layout().
  */
 ENTRY(_start)
 
@@ -18,10 +22,17 @@ SECTIONS
         KEEP(*(.text.head))     /* Image header + primary_entry must come first */
         *(.text .text.*)
     }
+    . = ALIGN(4096);
+    __text_end = .;
 
-    .rodata : ALIGN(8) { *(.rodata .rodata.*) }
+    __rodata_start = .;
+    .rodata : { *(.rodata .rodata.*) }
+    . = ALIGN(4096);
+    __rodata_end = .;
 
-    .data : ALIGN(8) { *(.data .data.*) }
+    /* .data, .bss and the stack: read-write. */
+    __data_start = .;
+    .data : { *(.data .data.*) }
 
     .bss (NOLOAD) : ALIGN(16) {
         __bss_start = .;
@@ -37,6 +48,7 @@ SECTIONS
         __stack_top = .;
     }
 
+    . = ALIGN(4096);
     __image_end = .;
     /* Absolute symbol for the header's image_size (Linux: _kernel_size_le). */
     __image_size = __image_end - __image_start;

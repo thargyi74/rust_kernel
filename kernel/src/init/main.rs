@@ -7,6 +7,7 @@ use crate::mm::mm_init::print_memory_node_ranges;
 use crate::pr_info;
 use core::ops::Range;
 use foundation::boot::BootInfo;
+use foundation::mm::paging_init;
 
 /// The first generic kernel function, called once by the architecture's boot
 /// code (Linux: `start_kernel()`, reached from `__primary_switched`).
@@ -48,8 +49,13 @@ pub fn start_kernel(info: BootInfo) -> ! {
         panic!("test-panic feature enabled");
     }
 
-    let memblock = memblock_init(&fdt, &info);
+    let mut memblock = memblock_init(&fdt);
     print_memory_node_ranges(&memblock);
+    // Linux calls `paging_init` from `setup_arch`.
+    let _mmu = paging_init(&mut memblock).unwrap_or_else(|e| panic!("paging_init: {:?}", e));
+    pr_info!("rust_kernel: MMU on");
+    #[cfg(feature = "test-unmapped")]
+    foundation::testing::read_unmapped();
 
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()

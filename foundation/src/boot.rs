@@ -29,7 +29,7 @@ impl BootInfo {
 
     /// Checks the device tree the bootloader passed.
     pub fn device_tree(&self) -> Result<BootFdt, FdtError> {
-        Fdt::new(self.dtb).map(BootFdt)
+        Fdt::new(self.dtb).map(|fdt| BootFdt { fdt, bytes: self.dtb })
     }
 }
 
@@ -38,13 +38,23 @@ impl BootInfo {
 /// turn device-tree values into raw device accesses take this, not a plain
 /// [`Fdt`], because safe code can build an `Fdt` from any bytes. It reads
 /// like an `Fdt` through `Deref`.
-pub struct BootFdt(Fdt<'static>);
+pub struct BootFdt {
+    fdt: Fdt<'static>,
+    bytes: &'static [u8],
+}
+
+impl BootFdt {
+    /// The blob's bytes, where the bootloader put them.
+    pub(crate) fn bytes(&self) -> &'static [u8] {
+        self.bytes
+    }
+}
 
 impl Deref for BootFdt {
     type Target = Fdt<'static>;
 
     fn deref(&self) -> &Fdt<'static> {
-        &self.0
+        &self.fdt
     }
 }
 

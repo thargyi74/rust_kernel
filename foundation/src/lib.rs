@@ -13,6 +13,7 @@ pub mod arch;
 pub mod boot;
 pub mod console;
 mod drivers;
+pub mod mm;
 pub mod power;
 #[cfg(feature = "test-hooks")]
 pub mod testing;

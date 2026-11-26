@@ -14,6 +14,6 @@ compile_error!("foundation supports only bare-metal aarch64 so far (build it thr
 /// Name of the CPU architecture this kernel was built for.
 pub const NAME: &str = imp::NAME;
 
-pub(crate) use imp::{halt, system_off};
+pub(crate) use imp::{enable_paging, halt, image_layout, mmu_enabled, system_off};
 #[cfg(feature = "test-hooks")]
 pub(crate) use imp::breakpoint;
