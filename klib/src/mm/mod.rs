@@ -3,4 +3,6 @@
 
 pub mod addr;
 pub mod buddy;
+pub mod layout;
+pub mod map;
 pub mod memblock;

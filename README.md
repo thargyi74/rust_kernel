@@ -59,7 +59,7 @@ rust_kernel: boot OK, powering off
 | Crate | Builds for | `unsafe`? | Linux counterpart |
 |---|---|---|---|
 | `xtask` | the Mac | forbidden (host tool) | `scripts/`, `Makefile` |
-| `klib` | the Mac + kernel | forbidden | `lib/` (algorithms that can be tested on the host) |
+| `klib` | the Mac + kernel | forbidden | `lib/` (algorithms that can be tested on the host), plus pure CPU data formats in `klib/src/arch/<arch>/` (page-table descriptors, MAIR/TCR values) |
 | `foundation` | kernel | **only here** | `arch/*`, the low-level parts of `mm/`, and locking |
 | `kernel` | kernel | forbidden | `init/`, `kernel/`, `mm/`, `fs/`, `drivers/` |
 | `vmlinux` | kernel | entry glue only | `vmlinux` (the final linked image) |
