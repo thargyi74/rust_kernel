@@ -56,5 +56,5 @@ Every milestone goes through the steps below. Each step is its own fresh session
 ## Status
 
 - M0 and M1: done and pushed.
-- M2 Part 1 (Tasks 1–5): done and reviewed, not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md`.
-- **M2: next is Part 2 (Tasks 6–8)** of `docs/superpowers/plans/2026-11-25-m2-memory.md`. Follow its "Execution in 3 parts" section, and read its Decision 7 first.
+- M2 Part 1 (Tasks 1–5) and Part 2 (Tasks 6–8): done and reviewed, not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md`.
+- **M2: next is Part 3 (Tasks 9–10)** of `docs/superpowers/plans/2026-11-25-m2-memory.md`. Follow its "Execution in 3 parts" section. Read Decision 7 first (and "How Part 2 applied it"), then the Task 9 interfaces, which changed after the Part 2 review.
