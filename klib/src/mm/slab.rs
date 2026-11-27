@@ -12,6 +12,8 @@
 //! empty slabs are not given back.
 
 use crate::mm::addr::{PAGE_SIZE, Pfn};
+use crate::mm::buddy::MAX_PAGE_ORDER;
+use crate::mm::layout::PHYS_OFFSET_ALIGN;
 
 /// Object sizes in bytes: the first ten `kmalloc` caches
 /// (`include/linux/slab.h:804-820`). Bigger requests take whole pages.
@@ -30,6 +32,21 @@ const MAGIC: u64 = 0x5341_4c42_4844_5221;
 pub fn size_class(size: usize, align: usize) -> Option<usize> {
     let size = size.max(1);
     SIZE_CLASSES.iter().position(|&c| c >= size && c % align == 0)
+}
+
+/// The order of the whole-page block for a request that [`size_class`]
+/// refused: the smallest with `PAGE_SIZE << order >= max(size, align)`
+/// (Linux: `kmalloc_large` and `get_order`). `None` past `MAX_PAGE_ORDER`.
+///
+/// Buddy blocks are aligned to their size in physical memory, but the
+/// linear map keeps a virtual address aligned like its physical one only
+/// up to [`PHYS_OFFSET_ALIGN`]. So a bigger `align` gets `None` too.
+pub fn page_order(size: usize, align: usize) -> Option<u8> {
+    if align as u64 > PHYS_OFFSET_ALIGN {
+        return None;
+    }
+    let need = size.max(align) as u64;
+    (0..=MAX_PAGE_ORDER).find(|&order| PAGE_SIZE << order >= need)
 }
 
 /// Where the first object starts: past the header, aligned to the largest
@@ -269,6 +286,25 @@ mod tests {
                 assert_eq!(slot_offset(i, s) % align, 0, "class {i} slot {s}");
             }
         }
+    }
+
+    #[test]
+    fn page_order_covers_size_and_align() {
+        assert_eq!(page_order(1, 1), Some(0));
+        assert_eq!(page_order(4096, 4096), Some(0));
+        assert_eq!(page_order(4097, 8), Some(1));
+        assert_eq!(page_order(100_000, 1), Some(5));
+        assert_eq!(page_order(16, 2 << 20), Some(9));
+        assert_eq!(page_order(4 << 20, 8), Some(10));
+        assert_eq!(page_order((4 << 20) + 1, 8), None);
+    }
+
+    #[test]
+    fn page_order_refuses_alignment_the_linear_map_does_not_keep() {
+        // VA == PA only modulo PHYS_OFFSET_ALIGN (2 MiB), so a 4 MiB-aligned
+        // buddy block can be 2 MiB off in the linear map.
+        assert_eq!(page_order(16, 4 << 20), None);
+        assert_eq!(page_order(4 << 20, 4 << 20), None);
     }
 
     #[test]

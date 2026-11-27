@@ -11,9 +11,9 @@ use core::ptr::null_mut;
 use core::sync::atomic::AtomicBool;
 use core::sync::atomic::Ordering::{Acquire, Release};
 use klib::mm::addr::{PAGE_SIZE, Pfn, VirtAddr};
-use klib::mm::buddy::{BuddyError, MAX_PAGE_ORDER};
+use klib::mm::buddy::BuddyError;
 use klib::mm::layout::LinearMap;
-use klib::mm::slab::{SlabError, SlabHeader, SlabPages, Slabs, size_class, slot_at, slot_offset};
+use klib::mm::slab::{SlabError, SlabHeader, SlabPages, Slabs, page_order, size_class, slot_at, slot_offset};
 
 /// Set by [`init`]. Until then `alloc` returns null and takes no lock,
 /// because the MMU may still be off. Only a plain load and store.
@@ -48,13 +48,6 @@ pub(super) fn init(mmu: &MmuOn) {
     }
     *heap = Some(Heap { slabs: Slabs::new(), lm: *mmu.linear_map() });
     READY.store(true, Release);
-}
-
-/// The smallest order with `PAGE_SIZE << order >= max(size, align)`.
-/// Buddy blocks are aligned to their size, so that covers `align` too.
-fn page_order(layout: Layout) -> Option<u8> {
-    let need = layout.size().max(layout.align()) as u64;
-    (0..=MAX_PAGE_ORDER).find(|&order| PAGE_SIZE << order >= need)
 }
 
 /// Slab pages from the page allocator, reached through the linear map.
@@ -95,8 +88,11 @@ impl SlabPages for HeapPages {
 // SAFETY: `alloc` returns null or a block of at least `layout.size()` bytes
 // aligned to `layout.align()` that no other live allocation overlaps: slab
 // slots are aligned for every alignment `size_class` accepts and a slot is
-// handed out once until freed (klib tests), and buddy blocks are aligned to
-// their size. All state is behind `SLABS` and `PAGES`, taken in that order.
+// handed out once until freed (klib tests). Buddy blocks are aligned to
+// their size in physical memory, and `page_order` refuses any alignment
+// above `PHYS_OFFSET_ALIGN`, up to which the linear map keeps a virtual
+// address aligned like its physical one. All state is behind `SLABS` and
+// `PAGES`, taken in that order.
 unsafe impl GlobalAlloc for KernelHeap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         if !READY.load(Acquire) {
@@ -110,7 +106,7 @@ unsafe impl GlobalAlloc for KernelHeap {
                 .slabs
                 .alloc(&mut HeapPages { lm }, class)
                 .map(|(pfn, slot)| lm.phys_to_virt(pfn.addr()).as_u64() + slot_offset(class, slot) as u64),
-            None => page_order(layout).and_then(alloc_pages).map(|pages| lm.phys_to_virt(pages.addr()).as_u64()),
+            None => page_order(layout.size(), layout.align()).and_then(alloc_pages).map(|pages| lm.phys_to_virt(pages.addr()).as_u64()),
         };
         block.map_or(null_mut(), |va| va as usize as *mut u8)
     }
@@ -132,7 +128,7 @@ unsafe impl GlobalAlloc for KernelHeap {
                 }
             }
             None => {
-                let order = page_order(layout).filter(|_| pa.is_aligned(PAGE_SIZE));
+                let order = page_order(layout.size(), layout.align()).filter(|_| pa.is_aligned(PAGE_SIZE));
                 let freed = match (order, PAGES.lock().as_mut()) {
                     (Some(order), Some(buddy)) => buddy.free_raw(pa.pfn(), order),
                     _ => Err(BuddyError::NotAllocated),

@@ -14,15 +14,21 @@ use klib::prandom::XorShift64;
 
 /// Blocks the random test holds at most.
 const HELD: usize = 64;
-/// Blocks one drain may hold. There is no heap yet and the boot stack is
-/// 64 KiB, so the drain takes the biggest blocks first, not ~130,000 pages.
+/// Blocks one drain may hold. The drain takes the biggest blocks first, so
+/// a few hundred blocks hold all of memory, not ~130,000 single pages. A
+/// heap `Vec` would take its pages from the pool being drained, and the
+/// boot stack is only 64 KiB.
 const DRAINED: usize = 512;
 
 /// Checks the page allocator once it holds all free memory.
 pub fn page_alloc_selftest() {
     let start = nr_free_pages();
+    // The blocks before anything is split. A top-down drain splits
+    // nothing, so it also leaves the free lists as they were.
+    let pristine = drain();
+    assert_eq!(pristine.1, start, "page allocator self-test: drained pages != free pages");
 
-    // 1. Random alloc/free steps, then free everything.
+    // 1. Random alloc/free steps, which split blocks, then free everything.
     let mut rng = XorShift64::new(7);
     let mut held: [Option<Pages>; HELD] = [const { None }; HELD];
     for _ in 0..2_000 {
@@ -35,13 +41,11 @@ pub fn page_alloc_selftest() {
     held.iter_mut().filter_map(Option::take).for_each(free_pages);
     assert_eq!(nr_free_pages(), start, "page allocator self-test: random steps lost pages");
 
-    // 2. Take every free page, then give them all back. A second drain
-    //    must find the same blocks, so freeing merged them back.
-    let first = drain();
-    assert_eq!(first.1, start, "page allocator self-test: drained pages != free pages");
-    assert_eq!(drain(), first, "page allocator self-test: blocks did not merge back");
+    // 2. Freeing must have merged every split block back: a drain finds
+    //    the same blocks as before step 1.
+    assert_eq!(drain(), pristine, "page allocator self-test: blocks did not merge back");
     assert_eq!(nr_free_pages(), start, "page allocator self-test: draining lost pages");
-    pr_info!("rust_kernel: page allocator self-test OK ({} pages)", first.1);
+    pr_info!("rust_kernel: page allocator self-test OK ({} pages)", pristine.1);
 }
 
 /// Allocates blocks from order `MAX_PAGE_ORDER` down to 0, each order until

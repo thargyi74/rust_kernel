@@ -18,7 +18,7 @@ const LINEAR_SIZE: u64 = 1 << 47;
 
 /// `PHYS_OFFSET` is the lowest RAM address rounded down to this, so linear
 /// addresses and physical addresses share 2 MiB alignment and blocks fit.
-const PHYS_OFFSET_ALIGN: u64 = 2 << 20;
+pub const PHYS_OFFSET_ALIGN: u64 = 2 << 20;
 
 /// The linear map: `va = PAGE_OFFSET + (pa - PHYS_OFFSET)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
