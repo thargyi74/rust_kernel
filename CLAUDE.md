@@ -59,7 +59,8 @@ Every milestone goes through the steps below. Each step is its own fresh session
 - M2: done (all 3 parts built and reviewed, closed on 2026-11-27) and pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md` (git-ignored; its rulings and minors are also in `docs/study/02-memory.md`, "What really happened").
 - M3 step 1, Study: done on 2026-11-27. The note is `docs/study/03-exceptions.md`. Its 5 open questions are at the end; question 4 is the Redox note's question 1.
 - The user answered the 5 open questions on 2026-11-27: option A for all five. The answers are recorded in the note.
-- **Next: M3 step 2, Plan.** Base it on the note's "Our Rust design" table and the recorded answers. The Redox note's question 2 is for M4.
+- M3 step 2, Plan: written on 2026-11-27. The plan is `docs/superpowers/plans/2026-11-27-m3-exceptions.md`: 11 tasks in 3 parts. The ledger will be `.superpowers/sdd/2026-11-27-m3-exceptions/progress.md` (git-ignored). Its Decisions 1–11 are "proposed by Claude"; Decision 1 (the stack-overflow check, Task 3) differs from the note. The Redox note's question 2 is for M4.
+- **Next: M3 step 3, Build Part 1**, once the user has reviewed the plan. Start text: `Run Part 1 of docs/superpowers/plans/2026-11-27-m3-exceptions.md (Tasks 1–4), following its "Execution in 3 parts" section.`
 
 **Redox side step, outside the milestone cycle — done on 2026-11-27.** The release comparison and its two open questions are in [the Redox overview](docs/study/redox-overview.md). The prerequisite for the M3 study is complete.
 - **When:** after M2 closes, before the M3 study (the user chose this on 2026-11-27). The M2 Close session should end by reminding the user to start the Redox session next. If a session is asked for the M3 study while this side step is still open, it should remind the user first.
