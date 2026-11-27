@@ -10,7 +10,7 @@ A Linux-like kernel written in pure Rust, built as a learning project. We study 
 
 - **M0** (toolchain, workspace, test harness): done.
 - **M1** (ARM64 boot to the serial console): done.
-- **M2** (memory): all tasks built; closing next. See [`docs/superpowers/plans/2026-11-25-m2-memory.md`](docs/superpowers/plans/2026-11-25-m2-memory.md).
+- **M2** (memory): done. See [`docs/superpowers/plans/2026-11-25-m2-memory.md`](docs/superpowers/plans/2026-11-25-m2-memory.md) and [`docs/study/02-memory.md`](docs/study/02-memory.md).
 
 ## Prerequisites (macOS, Apple Silicon)
 

@@ -56,8 +56,8 @@ Every milestone goes through the steps below. Each step is its own fresh session
 ## Status
 
 - M0 and M1: done and pushed.
-- M2 Part 1 (Tasks 1–5) and Part 2 (Tasks 6–8): done and reviewed, not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md`.
-- **M2: next is Part 3 (Tasks 9–10)** of `docs/superpowers/plans/2026-11-25-m2-memory.md`. Follow its "Execution in 3 parts" section. Read Decision 7 first (and "How Part 2 applied it"), then the Task 9 interfaces, which changed after the Part 2 review.
+- M2: done (all 3 parts built and reviewed, closed on 2026-11-27), not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md` (git-ignored; its rulings and minors are also in `docs/study/02-memory.md`, "What really happened").
+- **Next: M3 step 1, Study** (exceptions, interrupts, timer, first system calls; see the M3 roadmap row). But run the Redox side step below first; its "When" line says so.
 
 **Side step, outside the milestone cycle** (the user chose it on 2026-11-26). It is open, and runs only when the user starts a session with: `Do the Redox side study (see CLAUDE.md).` In that session, do only this, and don't change the milestone "next" line above.
 - **When:** after M2 closes, before the M3 study (the user chose this on 2026-11-27). The M2 Close session should end by reminding the user to start the Redox session next. If a session is asked for the M3 study while this side step is still open, it should remind the user first.

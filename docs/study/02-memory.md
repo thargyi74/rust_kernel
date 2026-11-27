@@ -347,3 +347,70 @@ If something is not mapped, the next access faults. We have no exception vectors
    - With layout B, the linear map also contains the kernel image, and it is writable there. Linux maps that part separately so it can make it read-only later (`mmu.c:1212-1220`). Recommendation: do the same. Map the image's linear alias with its own entries, as `ReadOnly` for text, so code can't be changed through the alias.
 7. **Caches on real hardware.** Tables written with the MMU and caches off may need cache invalidation before a cacheable table walk (Linux invalidates its early tables with `dcache_inval_poc`, `head.S:98-107`). QEMU's TCG mode doesn't model caches, so we note it and skip it for now.
 8. **Recursive-panic guard.** It needs an atomic flag. It becomes possible in M2, once the MMU is on.
+
+## What really happened (M2 built 2026-11-25 to 2026-11-27)
+
+**The real boot log** (QEMU `virt`, `cortex-a72`, 512 MiB):
+
+```
+Memory: 521416K/524288K available (164K kernel code, 68K rwdata, 36K rodata, 2872K reserved)
+rust_kernel: page allocator self-test OK (130354 pages)
+rust_kernel: heap self-test OK
+```
+
+- The reserved 2872K adds up to:
+  - the DTB, 1024K (QEMU pads it to 1 MiB);
+  - the image, 268K (164K + 68K + 36K);
+  - the frame array, 1536K (a 12-byte `Frame` for each of 131,072 pages);
+  - 11 page tables, 44K.
+- The boot page tables use 11 of the 64 tables `EarlyTables` allows.
+- Our "rwdata" is `.data` + `.bss` + the 64 KiB stack. Linux's is only `_edata - _sdata` (`mm/mm_init.c:2559`) and lists bss separately.
+
+**Decision 7, sealed boot data.** The Part 1 review found the hole, and the user confirmed the fix. Safe code can build an `Fdt`, a `Memblock`, a `BuddyAllocator` or a `PageBlock` from any numbers. So `foundation` never accepts one of these from outside when it turns it into raw memory access:
+- `BootFdt`: only `foundation` makes it, from the bootloader's DTB.
+- `BootMemblock`: made once, from the `BootFdt`. `paging_init` and `init_page_allocator` take it. The memblock is handed to the buddy allocator inside `foundation`.
+- `Pages`: only `alloc_pages` makes one. It is neither `Clone` nor `Copy`, and `free_pages` takes it.
+
+**Changes made while building** (the full list of rulings is in the plan's ledger):
+- **The MMU-off rule is checked by disassembly.** QEMU runs atomic read-modify-write fine with the MMU off, so no boot scenario can catch a break of the rule. `cargo xtask test` fails if any function outside `xtask::policy::ALLOWED_RMW` holds such an atomic, or if any function holds `dc zva`. The allowlist has `SpinLock`'s two `u16` functions and the `Arc<u32>`/`Weak<u32>` functions: `Arc`'s atomics are inlined into `Arc`'s own functions.
+- **The page self-test drains top-down,** into a fixed array of about 200 blocks, not ~130,000 single pages. A heap `Vec` would take its pages from the pool being drained, and the boot stack is only 64 KiB.
+  - The Part 3 review showed that a top-down drain never splits a block, so draining twice proved nothing about merging.
+  - The self-test now compares with a "pristine" drain made before the random steps.
+- **The heap's page path refuses `align` > 2 MiB.** Buddy blocks are aligned in physical memory. But the linear map keeps a virtual address aligned like its physical one only modulo 2 MiB, because `PHYS_OFFSET` is rounded down to 2 MiB. Linux rounds it much further: `ARM64_MEMSTART_ALIGN` is at least `1 << SECTION_SIZE_BITS` (`arch/arm64/mm/init.c:93-96`), which is 128 MiB with 4K pages (`arch/arm64/include/asm/sparsemem.h:29`).
+- **More simplifications against Linux:**
+  - empty slabs are never given back;
+  - free slots are a bitmap in the slab header, not a free pointer inside each object.
+
+**Limits that are fine on QEMU but not on real hardware:**
+- **No cache maintenance** for memory written with the MMU off (tables, `.bss`, stack), and no TGran4 check, which Linux makes in `head.S:461-464`. QEMU's TCG mode models no caches.
+- **`/reserved-memory` is not reserved.** QEMU `virt` has none. On a machine that has it, firmware memory would be handed out.
+- **The TCR IPS field is capped at 48 bits.** A CPU with `PARange` < 48 bits would let `map` accept an address it can't reach, and fault after the MMU is on. Linux behaves the same.
+- **`paging_init` keeps firmware's other `SCTLR_EL1` bits,** because it reads the register and ORs in our bits. Linux writes a known value.
+
+**Before later milestones:**
+- M3: `lock_irqsave`, and real exception handlers that replace the early reporter.
+- M7 (SMP):
+  - `try_lock` with two `u16` tickets can give a second guard after a 65,535-cycle ABA on another CPU. Use one `AtomicU32`, as Linux does.
+  - The panic guard and `BOOT_MEMBLOCK_MADE` must become `swap`.
+- **The 64 KiB boot stack has no guard page and no overflow stack.** An overflow silently overwrites `.bss`. Add both before the stack use grows.
+- Before M4, decide again: fallible allocation (Decision 2) and moving the image into the high half.
+
+**Small issues the reviews found and we did not fix (minors):**
+- Part 1:
+  - `rejects_unterminated_node_name` should assert the exact `BadStructure` offset.
+  - An unterminated `/memreserve/` map is read up to `totalsize` and can end in a misleading "no usable memory" panic.
+  - In debug builds, `base + len` overflows near `u64::MAX`, and `Pfn::addr` drops bits for a PFN ≥ 2^52.
+  - There are stray blank lines in the `//!` docs of `mm/memblock.rs` and `mm/buddy.rs`.
+  - The `pl011::putc` SAFETY comment ignores the test-hooks `set_base_unchecked`.
+- Part 2:
+  - The W^X assert in `layout.rs` is always true.
+  - `EarlyTables` would use a null pointer if memblock handed out physical address 0.
+  - `mmu_enabled` reads `SCTLR_EL1.M` without checking `CurrentEL`.
+- Part 3:
+  - The alignment self-test should use a slab-sized type such as `#[repr(align(1024))]`.
+  - `Slabs::free` checks `is_slab()` only after it has made the `&mut SlabHeader`.
+  - `mm_init.rs` names the wrong Linux caller: `mem_init_print_info` is called from `page_alloc_init_late` (`mm/mm_init.c:2239`, `:2267`).
+  - The `Memory:` comment wrongly says we have no bss.
+  - The code writes `* 4` and `/ 4096` where it should use `PAGE_SIZE`.
+  - Two `xtask` messages still say "outside SpinLock".
+  - There is a formatting slip at `xtask/src/scenarios.rs:140`.
