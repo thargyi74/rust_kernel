@@ -238,24 +238,32 @@ What M2 left that M3 must change:
 
 ## Open questions (decisions for the M3 plan)
 
+The user answered on 2026-11-27: option A for all five questions.
+
+
 1. **How do we build and load the first user program?**
    - **A (recommended).** A new small crate, for example `user/hello`. `xtask` builds it, links it at `0x40_0000` and turns it into a flat binary. The kernel embeds the bytes with `include_bytes!` and copies them into user pages.
    - **B.** Put the user code in a special section of the kernel image, mapped for EL0. This is simpler, but user and kernel code mix, and M4 cannot reuse it.
    - **C.** Write a small ELF loader now. This brings M4 work forward.
+   - **Answer (user, 2026-11-27): A.**
 2. **The `unsafe` rule and the user program.** A user program needs `asm!("svc #0")`, and that is `unsafe`. Today only `foundation` (and the `vmlinux` glue line) may use `unsafe`.
    - **A (recommended).** Allow `unsafe` in one small file of the user crate: the `svc` stubs, like Linux's `nolibc` (`arch-arm64.h`). It must have `SAFETY:` comments. `cargo xtask test` checks that no other user file uses `unsafe`.
    - **B.** Write the user program in `global_asm!` only. Then it is not really a Rust user program, and the exit test asks for one.
+   - **Answer (user, 2026-11-27): A.**
 3. **What happens when the user program ends, by `exit` or by a fault?** Linux never returns to the caller: the scheduler runs another task. We have no scheduler yet.
    - **A (recommended).** `run_user()` returns to `start_kernel` with the result: "exited with code N" or "killed by SIGSEGV". To do this, `foundation` saves a small kernel context before `eret` and resumes it later. This is good practice for M4's `cpu_switch_to`. The kernel prints the result, runs the next test, and powers off cleanly.
    - **B.** `exit` powers off directly. The fault test then needs its own boot. This is simpler, but it is not how Linux behaves.
+   - **Answer (user, 2026-11-27): A.**
 4. **How does `write` read the user's buffer?** (The Redox note's question 1.)
    - **A (recommended).** A small `copy_from_user` in `foundation` now. It checks that the range is inside the user window, not just "below `TASK_SIZE`", because our kernel is in the low half too. Then it copies into a bounded kernel buffer.
    - **B.** Bring M4's full `UserPtr` interface forward, with per-process address spaces.
+   - **Answer (user, 2026-11-27): A.**
 5. **The tick rate, and how we test it.**
    - **A (recommended).** `HZ = 250`, Linux's default, with a periodic tick only (no tickless mode). Test: enable IRQs, wait with `wfi` until `jiffies` reaches 25 (0.1 s), then print the count.
    - **B.** `HZ = 100`. That means fewer interrupts under QEMU's software CPU model, but it differs from Linux's default.
+   - **Answer (user, 2026-11-27): A.**
 
-**Smaller choices the plan will make unless you object:**
+**Smaller choices the plan will make** (the user did not object, 2026-11-27):
 - Interrupts run on the current kernel stack. Linux switches to a per-CPU IRQ stack (`call_on_irq_stack`, `entry.S:868-897`). We add one with per-task stacks in M4.
 - Add a guard page below the 64 KiB boot stack.
 - Fix the `entry.S:514-529` citation in `vectors.rs` when that file is replaced.
