@@ -5,11 +5,13 @@
 //! `klib::arch`.
 
 use crate::boot::BootFdt;
+use crate::sync::SpinLock;
 use crate::{arch, console};
 use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, Ordering::Relaxed};
-use klib::mm::addr::{PhysAddr, PhysRange};
-use klib::mm::layout::LinearMap;
+use klib::mm::addr::{PAGE_SIZE, PhysAddr, PhysRange};
+use klib::mm::buddy::{BuddyAllocator, Frame, PageBlock};
+use klib::mm::layout::{ImageLayout, LinearMap};
 use klib::mm::map::MapError;
 use klib::mm::memblock::{MAX_REGIONS, Memblock, MemblockError};
 
@@ -24,9 +26,12 @@ static BOOT_MEMBLOCK_MADE: AtomicBool = AtomicBool::new(false);
 ///
 /// Only `foundation` makes it, and only once. So the RAM it lists is real,
 /// and the pages it hands out belong to nobody else. That is why
-/// [`paging_init`] takes it, and not a plain [`Memblock`], which safe code
-/// can fill with any ranges (Decision 7 of the M2 plan). It reads like a
-/// `Memblock` through `Deref`.
+/// [`paging_init`] and [`init_page_allocator`] take it, and not a plain
+/// [`Memblock`], which safe code can fill with any ranges (Decision 7 of
+/// the M2 plan). It reads like a `Memblock` through `Deref`.
+///
+/// Limit: `/reserved-memory` nodes are not reserved yet (QEMU `virt` has
+/// none). On a machine that has them, firmware memory would be handed out.
 pub struct BootMemblock {
     memblock: Memblock,
     dtb: PhysRange,
@@ -135,4 +140,106 @@ pub fn paging_init(memblock: &mut BootMemblock) -> Result<MmuOn, PagingError> {
         return Err(PagingError::LinearMapCheckFailed);
     }
     Ok(MmuOn { lm })
+}
+
+/// Where the kernel image lies, from the linker (for the `Memory:` line).
+pub fn image_layout() -> ImageLayout {
+    arch::image_layout()
+}
+
+/// The page allocator, once [`init_page_allocator`] has run (Linux: the
+/// zone's `free_area`). Lock order: the heap lock first, then this one.
+static PAGES: SpinLock<Option<BuddyAllocator<'static>>> = SpinLock::new(None);
+
+/// Hands all free memory of the boot memblock to the buddy allocator
+/// (Linux: `memblock_free_all` from `mm_core_init`). Inside `foundation`:
+/// - the frame array is taken from the memblock in whole pages, so all of
+///   it is in the linear map, and covers the lowest to the highest RAM pfn;
+/// - it is filled with [`Frame::RESERVED`] through the linear map;
+/// - the memblock's free ranges, without the array, go to the buddy.
+///
+/// No `BuddyAllocator` and no frame array come in from outside, because
+/// safe code can build either over any pfns (Decision 7 of the M2 plan).
+///
+/// # Panics
+///
+/// If an allocator is already installed, or the frame array doesn't fit.
+pub fn init_page_allocator(memblock: BootMemblock, mmu: &MmuOn) {
+    let mut pages = PAGES.lock();
+    if pages.is_some() {
+        panic!("init_page_allocator: a page allocator is already installed");
+    }
+    let mut memblock = memblock.memblock;
+    let lowest = memblock.memory().iter().map(|r| r.start()).min();
+    let highest = memblock.memory().iter().map(|r| r.end()).max();
+    let (Some(lowest), Some(highest)) = (lowest, highest) else {
+        panic!("init_page_allocator: no memory");
+    };
+    let base = lowest.pfn();
+    let Some(end) = highest.align_up(PAGE_SIZE) else {
+        panic!("init_page_allocator: memory ends past the last page");
+    };
+    let count = end.pfn().as_u64() - base.as_u64();
+    let bytes = count.checked_mul(size_of::<Frame>() as u64).and_then(|b| b.checked_next_multiple_of(PAGE_SIZE));
+    let Some(pa) = bytes.and_then(|b| memblock.alloc(b, PAGE_SIZE)) else {
+        panic!("init_page_allocator: no room for {} frames", count);
+    };
+    let frames = mmu.linear_map().phys_to_virt(pa).as_u64() as usize as *mut Frame;
+    let count = count as usize;
+    for i in 0..count {
+        // SAFETY: `memblock.alloc` gave whole pages of RAM for `count`
+        // frames, page-aligned (enough for `Frame`). The memblock is the
+        // boot memblock, so they belong to nobody else, and `MmuOn` proves
+        // the linear map covers all RAM read-write (only the image's text
+        // and rodata alias is read-only, and the image is reserved).
+        unsafe { frames.add(i).write(Frame::RESERVED) };
+    }
+    // SAFETY: the same pages, now holding `count` initialised frames. The
+    // memblock is consumed here and the range stays reserved in it, so the
+    // buddy never hands the pages out and nothing else can reach them: this
+    // slice is their only user for the rest of the kernel's life.
+    let frames: &'static mut [Frame] = unsafe { core::slice::from_raw_parts_mut(frames, count) };
+    *pages = Some(memblock.into_page_allocator(frames, base));
+}
+
+/// 2^order pages from [`alloc_pages`]. Only `alloc_pages` makes one, and it
+/// is neither `Clone` nor `Copy`, so a block can be freed only once, and
+/// only to the allocator it came from.
+pub struct Pages {
+    block: PageBlock,
+}
+
+impl Pages {
+    pub fn addr(&self) -> PhysAddr {
+        self.block.addr()
+    }
+
+    pub fn order(&self) -> u8 {
+        self.block.order()
+    }
+
+    /// Size in bytes.
+    pub fn size(&self) -> u64 {
+        self.block.size()
+    }
+}
+
+/// 2^order contiguous pages (Linux: `alloc_pages`). `None` if no block is
+/// big enough or no allocator is installed yet.
+pub fn alloc_pages(order: u8) -> Option<Pages> {
+    PAGES.lock().as_mut()?.alloc(order).map(|block| Pages { block })
+}
+
+/// Gives pages from [`alloc_pages`] back (Linux: `__free_pages`).
+pub fn free_pages(pages: Pages) {
+    match PAGES.lock().as_mut() {
+        Some(buddy) => buddy.free(pages.block),
+        None => panic!("free_pages: no page allocator"),
+    }
+}
+
+/// Free pages in the page allocator, 0 before it exists (Linux:
+/// `nr_free_pages`).
+pub fn nr_free_pages() -> u64 {
+    PAGES.lock().as_ref().map_or(0, |buddy| buddy.free_pages())
 }

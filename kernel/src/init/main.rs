@@ -4,7 +4,8 @@
 use crate::drivers::firmware::psci::psci_dt_init;
 use crate::lib::locking_selftest::locking_selftest;
 use crate::mm::memblock::memblock_init;
-use crate::mm::mm_init::print_memory_node_ranges;
+use crate::mm::mm_init::{mm_core_init, print_memory_node_ranges};
+use crate::mm::selftest::page_alloc_selftest;
 use crate::pr_info;
 use core::ops::Range;
 use foundation::boot::BootInfo;
@@ -59,11 +60,14 @@ pub fn start_kernel(info: BootInfo) -> ! {
     #[cfg(feature = "test-early-lock")]
     drop(foundation::sync::SpinLock::new(()).lock());
     // Linux calls `paging_init` from `setup_arch`.
-    let _mmu = paging_init(&mut memblock).unwrap_or_else(|e| panic!("paging_init: {:?}", e));
+    let mmu = paging_init(&mut memblock).unwrap_or_else(|e| panic!("paging_init: {:?}", e));
     pr_info!("rust_kernel: MMU on");
     #[cfg(feature = "test-unmapped")]
     foundation::testing::read_unmapped();
     locking_selftest();
+    // Linux: `mm_core_init`, called from `start_kernel`.
+    mm_core_init(memblock, &mmu);
+    page_alloc_selftest();
 
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()

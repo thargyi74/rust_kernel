@@ -3,3 +3,4 @@
 
 pub mod memblock;
 pub mod mm_init;
+pub mod selftest;

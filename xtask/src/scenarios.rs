@@ -32,6 +32,10 @@ pub const SCENARIOS: &[Scenario] = &[
                 "  node   0: [mem 0x0000000040000000-0x000000005fffffff]",
                 "rust_kernel: MMU on",
                 "rust_kernel: spinlock self-test OK",
+                // K/524288K proves the 512 MiB came from the device tree.
+                "Memory: ",
+                "K/524288K available",
+                "rust_kernel: page allocator self-test OK",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address", "early exception"],
