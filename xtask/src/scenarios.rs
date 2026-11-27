@@ -36,6 +36,7 @@ pub const SCENARIOS: &[Scenario] = &[
                 "Memory: ",
                 "K/524288K available",
                 "rust_kernel: page allocator self-test OK",
+                "rust_kernel: heap self-test OK",
                 "rust_kernel: boot OK, powering off",
             ],
             must_not_contain: &["Kernel panic", "wrong address", "early exception"],
@@ -133,6 +134,17 @@ pub const SCENARIOS: &[Scenario] = &[
         machine: "virt",
         expect: Expect {
             must_contain: &["Kernel panic - not syncing: ", "rust_kernel: recursive panic, powering off"],
+            must_not_contain: &["boot OK"],
+        },
+        timeout: Duration::from_secs(10),
+    },    Scenario {
+        // An allocation before the heap exists fails, and Rust's
+        // out-of-memory handler panics with its own message.
+        name: "oom",
+        features: &["test-oom"],
+        machine: "virt",
+        expect: Expect {
+            must_contain: &["Kernel panic - not syncing: memory allocation of 8 bytes failed"],
             must_not_contain: &["boot OK"],
         },
         timeout: Duration::from_secs(10),

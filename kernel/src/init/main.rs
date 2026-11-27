@@ -5,7 +5,7 @@ use crate::drivers::firmware::psci::psci_dt_init;
 use crate::lib::locking_selftest::locking_selftest;
 use crate::mm::memblock::memblock_init;
 use crate::mm::mm_init::{mm_core_init, print_memory_node_ranges};
-use crate::mm::selftest::page_alloc_selftest;
+use crate::mm::selftest::{heap_selftest, page_alloc_selftest};
 use crate::pr_info;
 use core::ops::Range;
 use foundation::boot::BootInfo;
@@ -31,6 +31,9 @@ pub fn start_kernel(info: BootInfo) -> ! {
         header.version
     );
     psci_dt_init(&fdt);
+    // Before the heap exists, so the allocation fails.
+    #[cfg(feature = "test-oom")]
+    core::hint::black_box(alloc::boxed::Box::new(7u64));
     // After PSCI, so the guard's power-off works.
     if cfg!(feature = "test-recursive-panic") {
         panic!("{}", PanicsWhenShown);
@@ -68,6 +71,7 @@ pub fn start_kernel(info: BootInfo) -> ! {
     // Linux: `mm_core_init`, called from `start_kernel`.
     mm_core_init(memblock, &mmu);
     page_alloc_selftest();
+    heap_selftest();
 
     pr_info!("rust_kernel: boot OK, powering off");
     foundation::power::power_off()

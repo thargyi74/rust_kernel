@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
-//! Linux counterpart: none exactly; like the page checks of
-//! `lib/test_meminit.c`, run on the real page allocator.
+//! Linux counterpart: none exactly; like the page and `kmalloc` checks of
+//! `lib/test_meminit.c`, run on the real allocators.
 
 use crate::pr_info;
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::sync::Arc;
+use alloc::vec;
+use alloc::vec::Vec;
 use foundation::mm::{Pages, alloc_pages, free_pages, nr_free_pages};
 use klib::mm::buddy::MAX_PAGE_ORDER;
 use klib::prandom::XorShift64;
@@ -56,4 +61,36 @@ fn drain() -> (usize, u64) {
     assert_eq!(nr_free_pages(), 0, "page allocator self-test: pages left after the drain");
     held.iter_mut().filter_map(Option::take).for_each(free_pages);
     (blocks, pages)
+}
+
+/// Checks the heap: the slab path, the page path and alignment.
+pub fn heap_selftest() {
+    let mut v: Vec<u32> = Vec::new();
+    for i in 0..10_000 {
+        v.push(i);
+    }
+    assert_eq!(v.iter().sum::<u32>(), 49_995_000, "heap self-test: Vec sum");
+    let b = Box::new([7u8; 100]);
+    assert!(b.iter().all(|&x| x == 7), "heap self-test: Box contents");
+    let a = Arc::new(5u32);
+    let a2 = Arc::clone(&a);
+    assert_eq!(Arc::strong_count(&a), 2, "heap self-test: Arc strong_count");
+    drop(a2);
+    let s = format!("{}-{}", "heap", 42);
+    assert_eq!(s, "heap-42", "heap self-test: format!");
+
+    // The page path: more than the largest size class. Its pages go back.
+    let before = nr_free_pages();
+    {
+        let big = vec![0xa5u8; 100_000];
+        assert!(big.capacity() >= 100_000 && big.iter().all(|&x| x == 0xa5), "heap self-test: big Vec");
+    }
+    assert_eq!(nr_free_pages(), before, "heap self-test: big Vec pages not given back");
+
+    #[repr(align(4096))]
+    struct Aligned([u8; 16]);
+    let al = Box::new(Aligned([1; 16]));
+    assert_eq!(&*al as *const Aligned as usize % 4096, 0, "heap self-test: Box alignment");
+    assert_eq!(al.0[15], 1);
+    pr_info!("rust_kernel: heap self-test OK");
 }

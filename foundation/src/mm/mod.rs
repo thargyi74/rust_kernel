@@ -15,6 +15,8 @@ use klib::mm::layout::{ImageLayout, LinearMap};
 use klib::mm::map::MapError;
 use klib::mm::memblock::{MAX_REGIONS, Memblock, MemblockError};
 
+pub mod heap;
+
 /// Set once the boot memblock exists. Only a plain load and store, because
 /// it runs with the MMU off; that is enough with one CPU and no interrupts.
 /// M7 (SMP) must make this a `swap`.
@@ -242,4 +244,14 @@ pub fn free_pages(pages: Pages) {
 /// `nr_free_pages`).
 pub fn nr_free_pages() -> u64 {
     PAGES.lock().as_ref().map_or(0, |buddy| buddy.free_pages())
+}
+
+/// Starts the kernel heap, so `Vec`, `Box` and `Arc` work (Linux:
+/// `kmem_cache_init`). Allocations before it fail.
+///
+/// # Panics
+///
+/// If no page allocator is installed, or on a second call.
+pub fn init_heap(mmu: &MmuOn) {
+    heap::init(mmu)
 }

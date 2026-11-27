@@ -32,12 +32,18 @@ pub fn outside_packages(cargo_lock: &str) -> Vec<String> {
     outside
 }
 
-/// The only functions that may hold atomic read-modify-write instructions:
-/// the two that `SpinLock` uses, which asserts the MMU is on first. A new
-/// entry needs a reason why nothing reaches it with the MMU off.
+/// The only functions that may hold atomic read-modify-write instructions.
+/// A new entry needs a reason why nothing reaches it with the MMU off.
 pub const ALLOWED_RMW: &[&str] = &[
+    // `SpinLock`, which asserts the MMU is on first.
     "<core::sync::atomic::Atomic<u16>>::fetch_add",
     "core::sync::atomic::atomic_compare_exchange::<u16>",
+    // `Arc` (the heap self-test): an `Arc` exists only once the heap does,
+    // after the MMU is on; before `init_heap` every allocation fails. Each
+    // new `Arc<T>` brings its own names.
+    "<alloc::sync::Arc<u32> as core::clone::Clone>::clone",
+    "<alloc::sync::Arc<u32> as core::ops::drop::Drop>::drop",
+    "<alloc::sync::Weak<u32, &alloc::alloc::Global> as core::ops::drop::Drop>::drop",
 ];
 
 /// Instructions the MMU-off rule forbids.
