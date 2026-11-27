@@ -56,7 +56,7 @@ Every milestone goes through the steps below. Each step is its own fresh session
 ## Status
 
 - M0 and M1: done and pushed.
-- M2: done (all 3 parts built and reviewed, closed on 2026-11-27), not pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md` (git-ignored; its rulings and minors are also in `docs/study/02-memory.md`, "What really happened").
+- M2: done (all 3 parts built and reviewed, closed on 2026-11-27) and pushed. The ledger is `.superpowers/sdd/2026-11-25-m2-memory/progress.md` (git-ignored; its rulings and minors are also in `docs/study/02-memory.md`, "What really happened").
 - **Next: M3 step 1, Study** (exceptions, interrupts, timer, first system calls; see the M3 roadmap row). But run the Redox side step below first; its "When" line says so.
 
 **Side step, outside the milestone cycle** (the user chose it on 2026-11-26). It is open, and runs only when the user starts a session with: `Do the Redox side study (see CLAUDE.md).` In that session, do only this, and don't change the milestone "next" line above.
